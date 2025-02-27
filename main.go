@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -426,84 +423,40 @@ func (kc *KaitenClient) DeleteCard(cardID int) error {
 	return nil
 }
 
-// ChildTasks описывает задачи для создания внутри родительской карточки
-type ChildTasks struct {
-	ParentTitle      string   // Название родительской карточки или часть названия
-	ResponsibleEmail string   // Email ответственного пользователя (если есть)
-	ParentID         int      // ID родительской карточки (если есть)
-	TasksTitles      []string // Список задач, которые должны быть созданы внутри родительской карточки
+// Task описывает задачу для создания карточки
+type Task struct {
+	Type  string `json:"type"`  // Тип задачи (например, "delivery", "discovery")
+	Size  int    `json:"size"`  // Размер задачи (например, 8, 16)
+	Title string `json:"title"` // Название задачи
 }
 
-// LoadTasksFromFile загружает задачи из текстового файла и возвращает описание для создания карточек
-func LoadTasksFromFile(filePath string) ([]ChildTasks, error) {
+// Schedule описывает расписание задач
+type Schedule struct {
+	Parent      string `json:"parent"`      // ID родительской карточки
+	Responsible string `json:"responsible"` // Email ответственного
+	Tasks       []Task `json:"tasks"`       // Список задач
+}
+
+// ScheduleFile описывает структуру JSON-файла
+type ScheduleFile struct {
+	Schedule Schedule `json:"schedule"`
+}
+
+// LoadTasksFromJSON загружает задачи из JSON-файла и возвращает описание для создания карточек
+func LoadTasksFromJSON(filePath string) (*Schedule, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
-	var tasks []ChildTasks
-	var currentParent *ChildTasks
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		if strings.HasPrefix(line, "#") {
-			// Родительская задача по ID
-			parentIDStr := strings.TrimSpace(line[1:])
-			parentID, err := strconv.Atoi(parentIDStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid parent ID: %s", parentIDStr)
-			}
-
-			// Создаем новую родительскую задачу
-			currentParent = &ChildTasks{
-				ParentID:    parentID,
-				TasksTitles: []string{},
-			}
-			tasks = append(tasks, *currentParent)
-		} else if strings.HasPrefix(line, "@") {
-			// Ответственный
-			email := strings.TrimSpace(line[1:])
-			if len(tasks) == 0 {
-				return nil, fmt.Errorf("responsible email specified without a parent task")
-			}
-			// Обновляем последнюю родительскую задачу
-			tasks[len(tasks)-1].ResponsibleEmail = email
-		} else if strings.HasPrefix(line, "\t") {
-			// Название задачи
-			taskTitle := strings.TrimSpace(line)
-			if taskTitle == "" {
-				continue
-			}
-
-			if len(tasks) == 0 {
-				return nil, fmt.Errorf("task specified without a parent task")
-			}
-			// Добавляем задачу к последней родительской задаче
-			tasks[len(tasks)-1].TasksTitles = append(tasks[len(tasks)-1].TasksTitles, taskTitle)
-		} else {
-			// Родительская задача по названию
-			// if len(tasks) > 0 && tasks[len(tasks)-1].ParentID == 0 && tasks[len(tasks)-1].ParentTitle != "" {
-			// Если текущая родительская задача уже существует (по названию), добавляем к её названию
-			// 	tasks[len(tasks)-1].ParentTitle = line
-			// } else {
-			// Создаем новую родительскую задачу по названию
-			currentParent = &ChildTasks{
-				ParentTitle: line,
-				TasksTitles: []string{},
-			}
-			tasks = append(tasks, *currentParent)
-			// }
-		}
+	var scheduleFile ScheduleFile
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&scheduleFile); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON: %w", err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
-	}
-
-	return tasks, nil
+	return &scheduleFile.Schedule, nil
 }
 
 func main() {
@@ -565,20 +518,19 @@ func main() {
 	fmt.Println("Cards:", allUserCards)
 	fmt.Println("-----------------------------------------")
 
-	// Загрузка задач из файла
-	tasks, err := LoadTasksFromFile("tasks.txt")
+	// Загрузка задач из JSON-файла
+	schedule, err := LoadTasksFromJSON("tasks.json")
 	if err != nil {
-		fmt.Println("Error loading tasks from file:", err)
+		fmt.Println("Error loading tasks from JSON file:", err)
 		return
 	}
 
 	// Вывод задач
-	fmt.Println("Tasks loaded:")
-	for _, task := range tasks {
-		fmt.Printf("Parent: %s (ID: %d, Responsible: %s)\n", task.ParentTitle, task.ParentID, task.ResponsibleEmail)
-		for _, title := range task.TasksTitles {
-			fmt.Printf("  - %s\n", title)
-		}
+	fmt.Printf("Parent: %s\n", schedule.Parent)
+	fmt.Printf("Responsible: %s\n", schedule.Responsible)
+	fmt.Println("Tasks:")
+	for _, task := range schedule.Tasks {
+		fmt.Printf("  - Type: %s, Size: %d, Title: %s\n", task.Type, task.Size, task.Title)
 	}
 
 	// // Создание нового пользователя
