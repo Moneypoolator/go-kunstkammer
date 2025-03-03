@@ -1,11 +1,9 @@
 {
     "schedule": {
-        "parent": "48920",
-        "responsible": "anarolin@atollis.com",
+        "parent": "46941",
+        "responsible": "ispasskin@atollis.com",
         "tasks": [
-            { "type": "delivery", "size": 8, "title": "Согласовать с BE формат вызова нового режима окрошки и набор данных" },
-            { "type": "discovery", "size": 16, "title": "Реализовать генерацию траекторий из описаний стрингов " },
-            { "type": "delivery", "size": 8, "title": "Добавить интервальные данные к сгенерированным траекториям " }
+            { "type": "delivery", "size": 16, "title": "Передавать информацию о блокировках на фронт в стилях" }
         ]
     }
 }

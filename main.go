@@ -3,14 +3,16 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 )
 
 const (
-	baseURL = "https://kaiten.nordev.ru/api/latest"
+	baseURL = "https://kaiten.norsoft.ru/api/latest"
 )
 
 type User struct {
@@ -30,14 +32,121 @@ func PrintUser(user User) {
 	fmt.Printf("Last Name: %s\n", user.LastName)
 }
 
+// FindUserByEmail ищет пользователя по email в массиве
+func FindUserByEmail(users []User, email string) (*User, error) {
+	for _, user := range users {
+		if user.Email == email {
+			return &user, nil
+		}
+	}
+	return nil, fmt.Errorf("user with email '%s' not found", email)
+}
+
+// TaskType описывает тип задачи в Kaiten
+type TaskType struct {
+	ID   int    `json:"id"`   // ID типа задачи
+	Name string `json:"name"` // Название типа задачи
+	// Добавьте другие поля, если они есть в API
+}
+
+// TaskType описывает тип задачи в Kaiten
+type TaskIDType int
+
+// Константы для типов задач
+const (
+	BugTaskType                 TaskIDType = 7
+	UserStoryTaskType           TaskIDType = 5
+	TaskDiscoveryTaskType       TaskIDType = 11
+	CardTaskType                TaskIDType = 1
+	FeatureTaskType             TaskIDType = 4
+	ACCTaskType                 TaskIDType = 18
+	ImprovementTaskType         TaskIDType = 15
+	VulnerabilityTaskType       TaskIDType = 13
+	IntegrationTasksTaskType    TaskIDType = 19
+	TechDebtTaskType            TaskIDType = 9
+	AdministrativeTasksTaskType TaskIDType = 12
+	TaskDeliveryTaskType        TaskIDType = 6
+	RequestTaskType             TaskIDType = 17
+	EnablerTaskType             TaskIDType = 8
+)
+
+// String возвращает строковое представление типа задачи
+func (tt TaskIDType) String() string {
+	switch tt {
+	case BugTaskType:
+		return "Bug"
+	case UserStoryTaskType:
+		return "User Story"
+	case TaskDiscoveryTaskType:
+		return "Task Discovery"
+	case CardTaskType:
+		return "Card"
+	case FeatureTaskType:
+		return "Feature"
+	case ACCTaskType:
+		return "ACC"
+	case ImprovementTaskType:
+		return "Улучшение"
+	case VulnerabilityTaskType:
+		return "Уязвимость"
+	case IntegrationTasksTaskType:
+		return "Интеграционные задачи"
+	case TechDebtTaskType:
+		return "Техдолг"
+	case AdministrativeTasksTaskType:
+		return "Административные задачи"
+	case TaskDeliveryTaskType:
+		return "Task Delivery"
+	case RequestTaskType:
+		return "Обращение"
+	case EnablerTaskType:
+		return "Enabler"
+	default:
+		return "Unknown"
+	}
+}
+
+// taskTypeMap сопоставляет имя типа задачи с его константой
+var taskTypeMap = map[string]TaskIDType{
+	"Bug":            BugTaskType,
+	"User Story":     UserStoryTaskType,
+	"Task Discovery": TaskDiscoveryTaskType,
+	"discovery":      TaskDiscoveryTaskType,
+	"Card":           CardTaskType,
+	"Feature":        FeatureTaskType,
+	"ACC":            ACCTaskType,
+	"Улучшение":      ImprovementTaskType,
+	"Уязвимость":     VulnerabilityTaskType,
+	"Интеграционные задачи": IntegrationTasksTaskType,
+	"Техдолг": TechDebtTaskType,
+	"Административные задачи": AdministrativeTasksTaskType,
+	"Task Delivery": TaskDeliveryTaskType,
+	"delivery":      TaskDeliveryTaskType,
+	"Обращение":     RequestTaskType,
+	"Enabler":       EnablerTaskType,
+}
+
+// GetTaskTypeByName возвращает константу типа задачи по его имени
+func GetTaskTypeByName(name string) (TaskIDType, error) {
+	if taskType, exists := taskTypeMap[name]; exists {
+		return taskType, nil
+	}
+	return 0, fmt.Errorf("task type '%s' not found", name)
+}
+
 type Card struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	ColumnID    int    `json:"column_id"`
-	BoardID     int    `json:"board_id"`
-	MemberIDs   []int  `json:"member_ids"`          // Поле для идентификаторов участников карточки
-	ParentID    int    `json:"parent_id,omitempty"` // ID родительской карточки (если есть)
+	ID            int                    `json:"id"`
+	Title         string                 `json:"title"`
+	Description   string                 `json:"description"`
+	ColumnID      int                    `json:"column_id"`
+	BoardID       int                    `json:"board_id"`
+	LaneID        int                    `json:"lane_id"`              // Lane ID
+	MemberIDs     []int                  `json:"member_ids"`           // Поле для идентификаторов участников карточки
+	ParentID      int                    `json:"parent_id,omitempty"`  // ID родительской карточки (если есть)
+	TypeID        int                    `json:"type_id"`              // ID типа задачи
+	SizeText      string                 `json:"size_text"`            // Размер задачи
+	ResponsibleID int                    `json:"responsible_id"`       // Responsible ID
+	Properties    map[string]interface{} `json:"properties,omitempty"` // Пользовательские свойства
 }
 
 func PrintCard(card Card) {
@@ -48,6 +157,10 @@ func PrintCard(card Card) {
 	fmt.Printf("ColumnID: %d\n", card.ColumnID)
 	fmt.Printf("BoardID: %d\n", card.BoardID)
 	fmt.Println("MemberIDs: ", card.MemberIDs)
+	fmt.Printf("ParentID: %d\n", card.ParentID)
+	fmt.Printf("TypeID: %d\n", card.TypeID)
+	fmt.Printf("SizeText: %s\n", card.SizeText)
+	fmt.Printf("ResponsibleID: %d\n", card.ResponsibleID)
 }
 
 type KaitenClient struct {
@@ -175,7 +288,22 @@ func (kc *KaitenClient) GetUserByEmail(email string) (*User, error) {
 		return nil, fmt.Errorf("user with email %s not found", email)
 	}
 
-	return &users[0], nil
+	user, err := FindUserByEmail(users, email)
+	if user == nil || err != nil {
+		fmt.Println("Error:", err)
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (kc *KaitenClient) GetUserIDByEmail(responsibleEmail string) (int, error) {
+	user, err := kc.GetUserByEmail(responsibleEmail)
+	if user == nil || err != nil {
+		return 0, err
+	}
+
+	return user.ID, nil
 }
 
 // GetUserCards возвращает список карточек, в которых участвует пользователь с указанным идентификатором
@@ -318,6 +446,28 @@ func (kc *KaitenClient) DeleteUser(userID int) error {
 	return nil
 }
 
+// GetTaskTypes возвращает список типов задач из Kaiten
+func (kc *KaitenClient) GetTaskTypes() ([]TaskType, error) {
+	// Выполняем GET-запрос к эндпоинту /api/latest/card-types
+	resp, err := kc.doRequest("GET", "/card-types", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch task types: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// Декодируем ответ в список типов задач
+	var taskTypes []TaskType
+	if err := json.NewDecoder(resp.Body).Decode(&taskTypes); err != nil {
+		return nil, fmt.Errorf("failed to decode task types: %w", err)
+	}
+
+	return taskTypes, nil
+}
+
 // GetCards возвращает список всех карт
 func (kc *KaitenClient) GetCards() ([]Card, error) {
 	resp, err := kc.doRequest("GET", "/cards", nil)
@@ -371,16 +521,17 @@ func (kc *KaitenClient) CreateCard(card *Card) (*Card, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK { // || resp.StatusCode != http.StatusCreated
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var newCard Card
-	if err := json.NewDecoder(resp.Body).Decode(&newCard); err != nil {
-		return nil, err
+	// Декодируем ответ
+	var createdCard Card
+	if err := json.NewDecoder(resp.Body).Decode(&createdCard); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &newCard, nil
+	return &createdCard, nil
 }
 
 // UpdateCard обновляет информацию о карте
@@ -460,7 +611,62 @@ func LoadTasksFromJSON(filePath string) (*Schedule, error) {
 }
 
 func main() {
+
+	// Определение флагов командной строки
+	tasksFile := flag.String("tasks", "", "Path to the tasks JSON file (required)")
+	configFile := flag.String("config", "config.json", "Path to the configuration file (optional, default: config.json)")
+
+	// Парсинг аргументов командной строки
+	flag.Parse()
+
+	// Проверка обязательного аргумента
+	if *tasksFile == "" {
+		fmt.Println("Error: The 'tasks' flag is required.")
+		flag.Usage() // Вывод справки по использованию
+		//os.Exit(1)
+		*tasksFile = "tasks.json"
+	}
+
+	// Загрузка конфигурации (если указан файл конфигурации)
+	if *configFile != "" {
+		fmt.Printf("Loading configuration from: %s\n", *configFile)
+		// Здесь можно добавить логику для загрузки конфигурации
+	} else {
+		fmt.Println("Using default configuration.")
+	}
+
 	client := CreateKaitenClient("9ecb4b54-508a-4d1e-ad99-c1c4a04847bb")
+
+	// Создаем кастомный HTTP-клиент с отключенной проверкой сертификата
+	// client = &http.Client{
+	// 	Transport: &http.Transport{
+	// 		TLSClientConfig: &tls.Config{
+	// 			InsecureSkipVerify: true, // Отключаем проверку сертификата
+	// 		},
+	// 	},
+	// }
+
+	// // Загрузите сертификат CA
+	// caCert, err := ioutil.ReadFile("path/to/your/ca.crt")
+	// if err != nil {
+	// 	log.Fatalf("Failed to read CA certificate: %v", err)
+	// }
+
+	// // Создайте пул сертификатов и добавьте CA
+	// caCertPool := x509.NewCertPool()
+	// caCertPool.AppendCertsFromPEM(caCert)
+
+	// // Создайте кастомный TLS-конфиг
+	// tlsConfig := &tls.Config{
+	// 	RootCAs: caCertPool, // Используем кастомный пул CA
+	// }
+
+	// // Создайте кастомный HTTP-клиент
+	// client := &http.Client{
+	// 	Transport: &http.Transport{
+	// 		TLSClientConfig: tlsConfig,
+	// 	},
+	// }
 
 	// Получение списка пользователей
 	users, err := client.GetUsers()
@@ -519,7 +725,7 @@ func main() {
 	fmt.Println("-----------------------------------------")
 
 	// Загрузка задач из JSON-файла
-	schedule, err := LoadTasksFromJSON("tasks.json")
+	schedule, err := LoadTasksFromJSON(*tasksFile)
 	if err != nil {
 		fmt.Println("Error loading tasks from JSON file:", err)
 		return
@@ -528,9 +734,114 @@ func main() {
 	// Вывод задач
 	fmt.Printf("Parent: %s\n", schedule.Parent)
 	fmt.Printf("Responsible: %s\n", schedule.Responsible)
-	fmt.Println("Tasks:")
+
+	// Преобразуем email ответственного в ID пользователя
+	responsibleID, err := client.GetUserIDByEmail(schedule.Responsible)
+	if err != nil {
+		fmt.Println("Error getting responsible user ID:", err)
+		return
+	}
+
+	// Преобразуем ID родительской карточки из строки в число
+	parentID, err := strconv.Atoi(schedule.Parent)
+	if err != nil {
+		fmt.Println("Error parsing parent ID:", err)
+		return
+	}
+
+	// Создаем карточки для каждой задачи
 	for _, task := range schedule.Tasks {
-		fmt.Printf("  - Type: %s, Size: %d, Title: %s\n", task.Type, task.Size, task.Title)
+		// Определяем тип задачи
+		taskTypeID, err := GetTaskTypeByName(task.Type)
+		if err != nil {
+			fmt.Printf("Error getting task type ID for '%s': %v\n", task.Type, err)
+			continue
+		}
+
+		// Создаем карточку
+		card := &Card{
+			ID:            0,
+			Title:         task.Title,
+			BoardID:       192,
+			ColumnID:      776,
+			LaneID:        1275,
+			TypeID:        int(taskTypeID),
+			SizeText:      fmt.Sprintf("%d ч", task.Size),
+			ParentID:      parentID,
+			MemberIDs:     []int{responsibleID},
+			ResponsibleID: responsibleID,
+
+			Properties: map[string]interface{}{
+				"id_19": "1", // Строка
+			},
+		}
+
+		PrintCard(*card)
+
+		// Создаем карточку в Kaiten
+		createdCard, err := client.CreateCard(card)
+		if err != nil {
+			fmt.Printf("Error creating card '%s': %v\n", task.Title, err)
+			continue
+		}
+
+		fmt.Printf("Created card: %s (ID: %d)\n", createdCard.Title, createdCard.ID)
+	}
+
+	// 	var taskResponsibleUser *User = nil
+	// 	// GetUserByEmail возвращает пользователя по email
+	// 	if len(schedule.Responsible) > 0 {
+	// 		email := schedule.Responsible
+	// 		taskResponsibleUser, err = client.GetUserByEmail(email)
+	// 		if err != nil {
+	// 			fmt.Println("Error: there is no fount user by email:", err)
+	// 			//return
+	// 		}
+	// 	}
+
+	// 	fmt.Println("Tasks:")
+	// 	for _, task := range schedule.Tasks {
+	// 		fmt.Printf("  - Type: %s, Size: %d, Title: %s\n", task.Type, task.Size, task.Title)
+	// 	}
+
+	// Получаем список типов задач
+	taskTypes, err := client.GetTaskTypes()
+	if err != nil {
+		fmt.Println("Error fetching task types:", err)
+		return
+	}
+
+	// Выводим список типов задач
+	fmt.Println("Task Types:")
+	for _, taskType := range taskTypes {
+		fmt.Printf("ID: %d, Name: %s\n", taskType.ID, taskType.Name)
+	}
+
+	// Пример использования переименованных констант
+	taskType := BugTaskType
+	fmt.Printf("Task Type: %s (ID: %d)\n", taskType, taskType)
+
+	// Итерация по всем типам задач
+	taskTypesWithIds := []TaskIDType{
+		BugTaskType,
+		UserStoryTaskType,
+		TaskDiscoveryTaskType,
+		CardTaskType,
+		FeatureTaskType,
+		ACCTaskType,
+		ImprovementTaskType,
+		VulnerabilityTaskType,
+		IntegrationTasksTaskType,
+		TechDebtTaskType,
+		AdministrativeTasksTaskType,
+		TaskDeliveryTaskType,
+		RequestTaskType,
+		EnablerTaskType,
+	}
+
+	fmt.Println("All Task Types:")
+	for _, tt := range taskTypesWithIds {
+		fmt.Printf("ID: %d, Name: %s\n", tt, tt)
 	}
 
 	// // Создание нового пользователя
