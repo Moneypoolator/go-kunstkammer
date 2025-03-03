@@ -668,13 +668,13 @@ func main() {
 	// 	},
 	// }
 
-	// Получение списка пользователей
-	users, err := client.GetUsers()
-	if err != nil {
-		fmt.Println("Error getting users:", err)
-		return
-	}
-	fmt.Println("Users:", users)
+	// // Получение списка пользователей
+	// users, err := client.GetUsers()
+	// if err != nil {
+	// 	fmt.Println("Error getting users:", err)
+	// 	return
+	// }
+	// fmt.Println("Users:", users)
 
 	// Получение данных текущего пользователя
 	currentUser, err := client.GetCurrentUser()
@@ -683,46 +683,46 @@ func main() {
 		return
 	}
 
-	// Печать данных текущего пользователя
-	PrintUser(*currentUser)
-	fmt.Println("-----------------------------------------")
+	// // Печать данных текущего пользователя
+	// PrintUser(*currentUser)
+	// fmt.Println("-----------------------------------------")
 
-	// Получение списка карточек для пользователя с ID
-	userID := currentUser.ID
-	cards, err := client.GetUserCards(userID)
-	if err != nil {
-		fmt.Println("Error getting user cards:", err)
-		return
-	}
+	// // Получение списка карточек для пользователя с ID
+	// userID := currentUser.ID
+	// cards, err := client.GetUserCards(userID)
+	// if err != nil {
+	// 	fmt.Println("Error getting user cards:", err)
+	// 	return
+	// }
 
-	PrintCardsList(cards, userID)
-	fmt.Println("-----------------------------------------")
+	// PrintCardsList(cards, userID)
+	// fmt.Println("-----------------------------------------")
 
-	limit := 100
-	offset := 0
+	// limit := 100
+	// offset := 0
 
-	fmt.Printf("Get card by pages: limit=%d, offset=%d\n", limit, offset)
+	// fmt.Printf("Get card by pages: limit=%d, offset=%d\n", limit, offset)
 
-	cardsByMemberIDs, err := client.GetUserCardsByMemberIDs(userID, limit, offset)
-	if err != nil {
-		fmt.Println("Error getting user cards:", err)
-		return
-	}
+	// cardsByMemberIDs, err := client.GetUserCardsByMemberIDs(userID, limit, offset)
+	// if err != nil {
+	// 	fmt.Println("Error getting user cards:", err)
+	// 	return
+	// }
 
-	PrintCardsList(cardsByMemberIDs, userID)
-	fmt.Println("-----------------------------------------")
+	// PrintCardsList(cardsByMemberIDs, userID)
+	// fmt.Println("-----------------------------------------")
 
-	allUserCards, err := client.GetAllUserCards(userID)
-	if err != nil {
-		fmt.Println("Error getting all user cards:", err)
-		return
-	}
+	// allUserCards, err := client.GetAllUserCards(userID)
+	// if err != nil {
+	// 	fmt.Println("Error getting all user cards:", err)
+	// 	return
+	// }
 
-	// Печать списка всех карточек
-	fmt.Printf("All cards for user %d:\n", 11)
-	fmt.Printf("Cards count=%d :\n", len(allUserCards))
-	fmt.Println("Cards:", allUserCards)
-	fmt.Println("-----------------------------------------")
+	// // Печать списка всех карточек
+	// fmt.Printf("All cards for user %d:\n", 11)
+	// fmt.Printf("Cards count=%d :\n", len(allUserCards))
+	// fmt.Println("Cards:", allUserCards)
+	// fmt.Println("-----------------------------------------")
 
 	// Загрузка задач из JSON-файла
 	schedule, err := LoadTasksFromJSON(*tasksFile)
@@ -737,9 +737,10 @@ func main() {
 
 	// Преобразуем email ответственного в ID пользователя
 	responsibleID, err := client.GetUserIDByEmail(schedule.Responsible)
-	if err != nil {
+	if responsibleID == 0 || err != nil {
 		fmt.Println("Error getting responsible user ID:", err)
-		return
+		responsibleID = currentUser.ID
+		// return
 	}
 
 	// Преобразуем ID родительской карточки из строки в число
@@ -788,61 +789,45 @@ func main() {
 		fmt.Printf("Created card: %s (ID: %d)\n", createdCard.Title, createdCard.ID)
 	}
 
-	// 	var taskResponsibleUser *User = nil
-	// 	// GetUserByEmail возвращает пользователя по email
-	// 	if len(schedule.Responsible) > 0 {
-	// 		email := schedule.Responsible
-	// 		taskResponsibleUser, err = client.GetUserByEmail(email)
-	// 		if err != nil {
-	// 			fmt.Println("Error: there is no fount user by email:", err)
-	// 			//return
-	// 		}
-	// 	}
+	// // Получаем список типов задач
+	// taskTypes, err := client.GetTaskTypes()
+	// if err != nil {
+	// 	fmt.Println("Error fetching task types:", err)
+	// 	return
+	// }
 
-	// 	fmt.Println("Tasks:")
-	// 	for _, task := range schedule.Tasks {
-	// 		fmt.Printf("  - Type: %s, Size: %d, Title: %s\n", task.Type, task.Size, task.Title)
-	// 	}
+	// // Выводим список типов задач
+	// fmt.Println("Task Types:")
+	// for _, taskType := range taskTypes {
+	// 	fmt.Printf("ID: %d, Name: %s\n", taskType.ID, taskType.Name)
+	// }
 
-	// Получаем список типов задач
-	taskTypes, err := client.GetTaskTypes()
-	if err != nil {
-		fmt.Println("Error fetching task types:", err)
-		return
-	}
+	// // Пример использования переименованных констант
+	// taskType := BugTaskType
+	// fmt.Printf("Task Type: %s (ID: %d)\n", taskType, taskType)
 
-	// Выводим список типов задач
-	fmt.Println("Task Types:")
-	for _, taskType := range taskTypes {
-		fmt.Printf("ID: %d, Name: %s\n", taskType.ID, taskType.Name)
-	}
+	// // Итерация по всем типам задач
+	// taskTypesWithIds := []TaskIDType{
+	// 	BugTaskType,
+	// 	UserStoryTaskType,
+	// 	TaskDiscoveryTaskType,
+	// 	CardTaskType,
+	// 	FeatureTaskType,
+	// 	ACCTaskType,
+	// 	ImprovementTaskType,
+	// 	VulnerabilityTaskType,
+	// 	IntegrationTasksTaskType,
+	// 	TechDebtTaskType,
+	// 	AdministrativeTasksTaskType,
+	// 	TaskDeliveryTaskType,
+	// 	RequestTaskType,
+	// 	EnablerTaskType,
+	// }
 
-	// Пример использования переименованных констант
-	taskType := BugTaskType
-	fmt.Printf("Task Type: %s (ID: %d)\n", taskType, taskType)
-
-	// Итерация по всем типам задач
-	taskTypesWithIds := []TaskIDType{
-		BugTaskType,
-		UserStoryTaskType,
-		TaskDiscoveryTaskType,
-		CardTaskType,
-		FeatureTaskType,
-		ACCTaskType,
-		ImprovementTaskType,
-		VulnerabilityTaskType,
-		IntegrationTasksTaskType,
-		TechDebtTaskType,
-		AdministrativeTasksTaskType,
-		TaskDeliveryTaskType,
-		RequestTaskType,
-		EnablerTaskType,
-	}
-
-	fmt.Println("All Task Types:")
-	for _, tt := range taskTypesWithIds {
-		fmt.Printf("ID: %d, Name: %s\n", tt, tt)
-	}
+	// fmt.Println("All Task Types:")
+	// for _, tt := range taskTypesWithIds {
+	// 	fmt.Printf("ID: %d, Name: %s\n", tt, tt)
+	// }
 
 	// // Создание нового пользователя
 	// newUser := &kaiten.User{
