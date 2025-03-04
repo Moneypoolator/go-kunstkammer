@@ -534,29 +534,55 @@ func (kc *KaitenClient) CreateCard(card *Card) (*Card, error) {
 	return &createdCard, nil
 }
 
-// UpdateCard обновляет информацию о карте
-func (kc *KaitenClient) UpdateCard(cardID int, card *Card) (*Card, error) {
-	body, err := json.Marshal(card)
+// CardUpdate описывает данные для обновления карточки
+type CardUpdate struct {
+	Title         *string                `json:"title,omitempty"`
+	Description   *string                `json:"description,omitempty"`
+	ColumnID      *int                   `json:"column_id,omitempty"`
+	BoardID       *int                   `json:"board_id,omitempty"`
+	LaneID        *int                   `json:"lane_id,omitempty"`
+	MemberIDs     *[]int                 `json:"member_ids,omitempty"`
+	ParentID      *int                   `json:"parent_id,omitempty"`
+	TypeID        *int                   `json:"type_id,omitempty"`
+	SizeText      *string                `json:"size_text,omitempty"`
+	ResponsibleID *int                   `json:"responsible_id,omitempty"`
+	OwnerID       *int                   `json:"owner_id,omitempty"`
+	OwnerEmailID  *string                `json:"owner_email,omitempty"`
+	Properties    map[string]interface{} `json:"properties,omitempty"`
+}
+
+// UpdateCard обновляет карточку с указанным ID
+func (kc *KaitenClient) UpdateCard(cardID int, update CardUpdate) error {
+	// Преобразуем данные обновления в JSON
+	body, err := json.Marshal(update)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("failed to marshal update data: %w", err)
 	}
 
-	resp, err := kc.doRequest("PUT", fmt.Sprintf("/cards/%d", cardID), body)
+	// Создаем PATCH-запрос
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cards/%d", kc.baseURL, cardID), bytes.NewBuffer(body))
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+kc.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Выполняем запрос
+	resp, err := kc.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Проверяем статус ответа
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var updatedCard Card
-	if err := json.NewDecoder(resp.Body).Decode(&updatedCard); err != nil {
-		return nil, err
-	}
-
-	return &updatedCard, nil
+	return nil
 }
 
 // DeleteCard удаляет карту по ID
@@ -568,6 +594,94 @@ func (kc *KaitenClient) DeleteCard(cardID int) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// TagRequest описывает данные для добавления тега
+type TagRequest struct {
+	Name string `json:"name"` // Имя тега
+}
+
+// AddTagToCard добавляет тег к карточке с указанным ID
+func (kc *KaitenClient) AddTagToCard(cardID int, tagName string) error {
+	// Создаем данные для добавления тега
+	tagRequest := TagRequest{
+		Name: tagName,
+	}
+
+	// Преобразуем данные в JSON
+	body, err := json.Marshal(tagRequest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tag data: %w", err)
+	}
+
+	// Создаем POST-запрос
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/cards/%d/tags", kc.baseURL, cardID), bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Authorization", "Bearer "+kc.token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	// Выполняем запрос
+	resp, err := kc.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Проверяем статус ответа
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// Add children Request
+type AddChildrenRequest struct {
+	CardID int `json:"card_id"`
+}
+
+// AddTagToCard добавляет тег к карточке с указанным ID
+func (kc *KaitenClient) AddChindrenToCard(cardID int, childrenCardID int) error {
+	// Создаем данные для добавления тега
+	requestData := AddChildrenRequest{
+		CardID: childrenCardID,
+	}
+
+	// Преобразуем данные в JSON
+	body, err := json.Marshal(requestData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tag data: %w", err)
+	}
+
+	// Создаем POST-запрос
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/cards/%d/children", kc.baseURL, cardID), bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Authorization", "Bearer "+kc.token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	// Выполняем запрос
+	resp, err := kc.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Проверяем статус ответа
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
@@ -784,9 +898,54 @@ func main() {
 		if err != nil {
 			fmt.Printf("Error creating card '%s': %v\n", task.Title, err)
 			continue
+		} else {
+			fmt.Printf("Created card: %s (ID: %d)\n", createdCard.Title, createdCard.ID)
 		}
 
-		fmt.Printf("Created card: %s (ID: %d)\n", createdCard.Title, createdCard.ID)
+		if createdCard.TypeID == int(TaskDeliveryTaskType) || createdCard.TypeID == int(TaskDiscoveryTaskType) {
+
+			titleUpdate := fmt.Sprintf("[CAD]:TS.%s.%d. %s", "XX.XX", createdCard.ID, createdCard.Title)
+			updateData := &CardUpdate{
+				Title: stringPtr(titleUpdate),
+				// BoardID:      intPtr(192),
+				// ColumnID:     intPtr(776),
+				// LaneID:       intPtr(1275),
+				// TypeID:       intPtr(int(createdCard.TypeID)),
+				// OwnerID:      intPtr(responsibleID),
+				// OwnerEmailID: stringPtr(schedule.Responsible),
+				// Properties: map[string]interface{}{
+				// 	"id_19": "1", // Строка
+				// },
+			}
+
+			err = client.UpdateCard(createdCard.ID, *updateData)
+			if err != nil {
+				fmt.Printf("Error updating card '%s': %v\n", titleUpdate, err)
+			} else {
+				fmt.Printf("Updated card: %s (ID: %d)\n", titleUpdate, createdCard.ID)
+			}
+		}
+
+		err = client.AddChindrenToCard(parentID, createdCard.ID)
+		if err != nil {
+			fmt.Println("Error adding children to card:", err)
+			//return
+		}
+
+		// Добавляем тег к карточке
+		err = client.AddTagToCard(createdCard.ID, "ГГИС")
+		if err != nil {
+			fmt.Println("Error adding tag to card:", err)
+			//return
+		}
+
+		// Добавляем тег к карточке
+		err = client.AddTagToCard(createdCard.ID, "C++")
+		if err != nil {
+			fmt.Println("Error adding tag to card:", err)
+			//return
+		}
+
 	}
 
 	// // Получаем список типов задач
@@ -908,4 +1067,13 @@ func PrintCardsList(cards []Card, userID int) {
 		fmt.Printf("Card ID: %d, Title: %s, Description: %s, ColumnID: %d, BoardID: %d\n",
 			card.ID, card.Title, card.Description, card.ColumnID, card.BoardID)
 	}
+}
+
+// Вспомогательные функции для создания указателей
+func stringPtr(s string) *string {
+	return &s
+}
+
+func intPtr(i int) *int {
+	return &i
 }
