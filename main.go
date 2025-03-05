@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 )
 
@@ -724,6 +725,22 @@ func LoadTasksFromJSON(filePath string) (*Schedule, error) {
 	return &scheduleFile.Schedule, nil
 }
 
+// ExtractWorkCode извлекает код работы из названия родительской карточки
+func ExtractWorkCode(parentTitle string) (string, error) {
+
+	// Регулярное выражение для поиска кода работы
+	// Шаблон: номер фичи (цифры или символы), точка, номер пользовательской истории (цифры или символы)
+	re := regexp.MustCompile(`\[CAD\]:[A-Za-z]+\.([^.\s]+\.[^.\s]+)`)
+	match := re.FindStringSubmatch(parentTitle)
+
+	if len(match) < 2 {
+		return "", fmt.Errorf("work code not found in title: %s", parentTitle)
+	}
+
+	// Возвращаем первую найденную группу (код работы)
+	return match[1], nil
+}
+
 func main() {
 
 	// Определение флагов командной строки
@@ -864,6 +881,26 @@ func main() {
 		return
 	}
 
+	parentCard, err := client.GetCard(parentID)
+	if err != nil {
+		fmt.Println("Error parsing parent card by ID:", err)
+		return
+	}
+
+	parentCardWorkCode := "XXX.XX"
+	if len(parentCard.Title) > 0 {
+		workCode, err := ExtractWorkCode(parentCard.Title)
+		if err != nil {
+			fmt.Println("Error:", err)
+			// return
+		} else {
+			parentCardWorkCode = workCode
+		}
+		//fmt.Printf("Work code: %s\n", workCode)
+	} else {
+		fmt.Println("Error parent card title is empty")
+	}
+
 	// Создаем карточки для каждой задачи
 	for _, task := range schedule.Tasks {
 		// Определяем тип задачи
@@ -891,7 +928,7 @@ func main() {
 			},
 		}
 
-		PrintCard(*card)
+		//PrintCard(*card)
 
 		// Создаем карточку в Kaiten
 		createdCard, err := client.CreateCard(card)
@@ -904,7 +941,7 @@ func main() {
 
 		if createdCard.TypeID == int(TaskDeliveryTaskType) || createdCard.TypeID == int(TaskDiscoveryTaskType) {
 
-			titleUpdate := fmt.Sprintf("[CAD]:TS.%s.%d. %s", "XX.XX", createdCard.ID, createdCard.Title)
+			titleUpdate := fmt.Sprintf("[CAD]:TS.%s.%d. %s", parentCardWorkCode, createdCard.ID, createdCard.Title)
 			updateData := &CardUpdate{
 				Title: stringPtr(titleUpdate),
 				// BoardID:      intPtr(192),
