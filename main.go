@@ -737,7 +737,6 @@ func ExtractWorkCode(parentTitle string) (string, error) {
 		return "", fmt.Errorf("work code not found in title: %s", parentTitle)
 	}
 
-	// Возвращаем первую найденную группу (код работы)
 	return match[1], nil
 }
 
@@ -747,7 +746,6 @@ func main() {
 	tasksFile := flag.String("tasks", "", "Path to the tasks JSON file (required)")
 	configFile := flag.String("config", "config.json", "Path to the configuration file (optional, default: config.json)")
 
-	// Парсинг аргументов командной строки
 	flag.Parse()
 
 	// Проверка обязательного аргумента
@@ -984,116 +982,6 @@ func main() {
 		}
 
 	}
-
-	// // Получаем список типов задач
-	// taskTypes, err := client.GetTaskTypes()
-	// if err != nil {
-	// 	fmt.Println("Error fetching task types:", err)
-	// 	return
-	// }
-
-	// // Выводим список типов задач
-	// fmt.Println("Task Types:")
-	// for _, taskType := range taskTypes {
-	// 	fmt.Printf("ID: %d, Name: %s\n", taskType.ID, taskType.Name)
-	// }
-
-	// // Пример использования переименованных констант
-	// taskType := BugTaskType
-	// fmt.Printf("Task Type: %s (ID: %d)\n", taskType, taskType)
-
-	// // Итерация по всем типам задач
-	// taskTypesWithIds := []TaskIDType{
-	// 	BugTaskType,
-	// 	UserStoryTaskType,
-	// 	TaskDiscoveryTaskType,
-	// 	CardTaskType,
-	// 	FeatureTaskType,
-	// 	ACCTaskType,
-	// 	ImprovementTaskType,
-	// 	VulnerabilityTaskType,
-	// 	IntegrationTasksTaskType,
-	// 	TechDebtTaskType,
-	// 	AdministrativeTasksTaskType,
-	// 	TaskDeliveryTaskType,
-	// 	RequestTaskType,
-	// 	EnablerTaskType,
-	// }
-
-	// fmt.Println("All Task Types:")
-	// for _, tt := range taskTypesWithIds {
-	// 	fmt.Printf("ID: %d, Name: %s\n", tt, tt)
-	// }
-
-	// // Создание нового пользователя
-	// newUser := &kaiten.User{
-	// 	Email:     "newuser@example.com",
-	// 	FirstName: "John",
-	// 	LastName:  "Doe",
-	// }
-	// createdUser, err := client.CreateUser(newUser)
-	// if err != nil {
-	// 	fmt.Println("Error creating user:", err)
-	// 	return
-	// }
-	// fmt.Println("Created user:", createdUser)
-
-	// // Обновление пользователя
-	// createdUser.FirstName = "Jane"
-	// updatedUser, err := client.UpdateUser(createdUser.ID, createdUser)
-	// if err != nil {
-	// 	fmt.Println("Error updating user:", err)
-	// 	return
-	// }
-	// fmt.Println("Updated user:", updatedUser)
-
-	// // Удаление пользователя
-	// err = client.DeleteUser(updatedUser.ID)
-	// if err != nil {
-	// 	fmt.Println("Error deleting user:", err)
-	// 	return
-	// }
-	// fmt.Println("User deleted")
-
-	// // Получение списка карт
-	// allCards, err := client.GetCards()
-	// if err != nil {
-	// 	fmt.Println("Error getting cards:", err)
-	// 	return
-	// }
-	// fmt.Printf("Cards count=%d :\n", len(allCards))
-	// fmt.Println("Cards:", allCards)
-
-	// // Создание новой карты
-	// newCard := &kaiten.Card{
-	// 	Title:       "New Card",
-	// 	Description: "This is a new card",
-	// 	ColumnID:    123,
-	// 	BoardID:     456,
-	// }
-	// createdCard, err := client.CreateCard(newCard)
-	// if err != nil {
-	// 	fmt.Println("Error creating card:", err)
-	// 	return
-	// }
-	// fmt.Println("Created card:", createdCard)
-
-	// // Обновление карты
-	// createdCard.Title = "Updated Card"
-	// updatedCard, err := client.UpdateCard(createdCard.ID, createdCard)
-	// if err != nil {
-	// 	fmt.Println("Error updating card:", err)
-	// 	return
-	// }
-	// fmt.Println("Updated card:", updatedCard)
-
-	// // Удаление карты
-	// err = client.DeleteCard(updatedCard.ID)
-	// if err != nil {
-	// 	fmt.Println("Error deleting card:", err)
-	// 	return
-	// }
-	// fmt.Println("Card deleted")
 
 }
 

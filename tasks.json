@@ -1,10 +1,10 @@
 {
     "schedule": {
-        "parent": "46356",
-        "responsible": "avechkanov@atollis.com",
+        "parent": "49231",
+        "responsible": "rkukushkin@atollis.com",
         "tasks": [
             { "type": "delivery", "size": 4, "title": "Воспроизвести тестовый случай на дев-стенде и машине разработчика" },
-            { "type": "delivery", "size": 16, "title": "Исправить синхронизацию свойств с одинаковым именем и разными типами при привязке МО к БО" }
+            { "type": "delivery", "size": 16, "title": "Исправить построение изолиний по текущей выбранной ПМ" }
         ]
     }
 }
