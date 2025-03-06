@@ -2,9 +2,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -170,9 +173,48 @@ type KaitenClient struct {
 	token   string
 }
 
+func createHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // Отключаем проверку сертификата
+			},
+		},
+	}
+}
+
+func createTLSConfig(caCertPath string) (*tls.Config, error) {
+	caCert, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	return &tls.Config{
+		RootCAs: caCertPool,
+	}, nil
+}
+
+func createHTTPClientWithCertificate(crtFileName string) *http.Client {
+	tlsConfig, err := createTLSConfig(crtFileName)
+	if err != nil {
+		log.Fatalf("Failed to create TLS config: %v", err)
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+	return client
+}
+
 func CreateKaitenClient(token string) *KaitenClient {
+	client := createHTTPClient()
 	return &KaitenClient{
-		client:  &http.Client{},
+		client:  client, //&http.Client{},
 		baseURL: baseURL,
 		token:   token,
 	}
@@ -190,19 +232,42 @@ func (kc *KaitenClient) doRequest(method, path string, body []byte) (*http.Respo
 	return kc.client.Do(req)
 }
 
+func (kc *KaitenClient) doRequestWithBody(method, path string, body interface{}) (*http.Response, error) {
+	var buf bytes.Buffer
+	if body != nil {
+		if err := json.NewEncoder(&buf).Encode(body); err != nil {
+			return nil, fmt.Errorf("failed to encode request body: %w", err)
+		}
+	}
+
+	req, err := http.NewRequest(method, kc.baseURL+path, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+kc.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	return kc.client.Do(req)
+}
+
+func (kc *KaitenClient) decodeResponse(resp *http.Response, v interface{}) error {
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	return json.NewDecoder(resp.Body).Decode(v)
+}
+
 func (kc *KaitenClient) GetUsers() ([]User, error) {
-	resp, err := kc.doRequest("GET", "/users", nil)
+	resp, err := kc.doRequestWithBody("GET", "/users", nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
 
 	var users []User
-	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+	if err := kc.decodeResponse(resp, &users); err != nil {
 		return nil, err
 	}
 
@@ -269,19 +334,14 @@ func (kc *KaitenClient) GetUserCards(userID int) ([]Card, error) {
 }
 
 // GetUserByEmail возвращает пользователя по email
-func (kc *KaitenClient) GetUserByEmail(email string) (*User, error) {
-	resp, err := kc.doRequest("GET", "/users?email="+url.QueryEscape(email), nil)
+func (kc *KaitenClient) getUserByEmail(email string) (*User, error) {
+	resp, err := kc.doRequestWithBody("GET", "/users?email="+url.QueryEscape(email), nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
 
 	var users []User
-	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+	if err := kc.decodeResponse(resp, &users); err != nil {
 		return nil, err
 	}
 
@@ -289,18 +349,11 @@ func (kc *KaitenClient) GetUserByEmail(email string) (*User, error) {
 		return nil, fmt.Errorf("user with email %s not found", email)
 	}
 
-	user, err := FindUserByEmail(users, email)
-	if user == nil || err != nil {
-		fmt.Println("Error:", err)
-		return nil, err
-	}
-
-	return user, nil
+	return FindUserByEmail(users, email)
 }
-
 func (kc *KaitenClient) GetUserIDByEmail(responsibleEmail string) (int, error) {
-	user, err := kc.GetUserByEmail(responsibleEmail)
-	if user == nil || err != nil {
+	user, err := kc.getUserByEmail(responsibleEmail)
+	if err != nil {
 		return 0, err
 	}
 
@@ -310,76 +363,78 @@ func (kc *KaitenClient) GetUserIDByEmail(responsibleEmail string) (int, error) {
 // GetUserCards возвращает список карточек, в которых участвует пользователь с указанным идентификатором
 // limit - количество карточек на странице
 // offset - смещение относительно начала списка
-func (kc *KaitenClient) GetUserCardsByMemberIDs(userID int, limit int, offset int) ([]Card, error) {
-	// Формируем параметры запроса
+func (kc *KaitenClient) getUserCards(userID int, limit int, offset int) ([]Card, error) {
 	params := url.Values{}
-	params.Add("member_ids", fmt.Sprintf("%d", userID)) // Фильтр по пользователю
-	params.Add("limit", fmt.Sprintf("%d", limit))       // Количество карточек на странице
-	params.Add("offset", fmt.Sprintf("%d", offset))     // Смещение
-	params.Add("condition", "1")                        // странное поле, которое должно быть заполнено 1
+	params.Add("member_ids", fmt.Sprintf("%d", userID))
+	params.Add("limit", fmt.Sprintf("%d", limit))
+	params.Add("offset", fmt.Sprintf("%d", offset))
+	params.Add("condition", "1")
 
-	// Выполняем запрос к эндпоинту /cards с параметрами
-	resp, err := kc.doRequest("GET", "/cards?"+params.Encode(), nil)
+	resp, err := kc.doRequestWithBody("GET", "/cards?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
 
 	var cards []Card
-	if err := json.NewDecoder(resp.Body).Decode(&cards); err != nil {
+	if err := kc.decodeResponse(resp, &cards); err != nil {
 		return nil, err
 	}
 
 	return cards, nil
 }
 
-// GetAllUserCards возвращает все карточки, в которых участвует пользователь с указанным идентификатором
+func (kc *KaitenClient) GetUserCardsByMemberIDs(userID int, limit int, offset int) ([]Card, error) {
+	return kc.getUserCards(userID, limit, offset)
+}
+
 func (kc *KaitenClient) GetAllUserCards(userID int) ([]Card, error) {
 	var allCards []Card
-	limit := 100 // Количество карточек на странице
-	offset := 0  // Начальное смещение
+	limit := 100
+	offset := 0
 
 	for {
-		// Формируем параметры запроса
-		params := url.Values{}
-		params.Add("member_ids", fmt.Sprintf("%d", userID)) // Фильтр по пользователю
-		params.Add("limit", fmt.Sprintf("%d", limit))       // Количество карточек на странице
-		params.Add("offset", fmt.Sprintf("%d", offset))     // Смещение
-		params.Add("condition", "1")                        // странное поле, которое должно быть заполнено 1
-
-		// Выполняем запрос к эндпоинту /cards с параметрами
-		resp, err := kc.doRequest("GET", "/cards?"+params.Encode(), nil)
+		cards, err := kc.getUserCards(userID, limit, offset)
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-		}
-
-		var cards []Card
-		if err := json.NewDecoder(resp.Body).Decode(&cards); err != nil {
-			return nil, err
-		}
-
-		// Если карточек нет, завершаем цикл
 		if len(cards) == 0 {
 			break
 		}
 
-		// Добавляем полученные карточки в общий список
 		allCards = append(allCards, cards...)
-
-		// Увеличиваем offset для следующей страницы
 		offset += limit
 	}
 
 	return allCards, nil
+}
+
+func (kc *KaitenClient) createUser(user *User) (*User, error) {
+	resp, err := kc.doRequestWithBody("POST", "/users", user)
+	if err != nil {
+		return nil, err
+	}
+
+	var newUser User
+	if err := kc.decodeResponse(resp, &newUser); err != nil {
+		return nil, err
+	}
+
+	return &newUser, nil
+}
+
+func (kc *KaitenClient) updateUser(userID int, user *User) (*User, error) {
+	resp, err := kc.doRequestWithBody("PUT", fmt.Sprintf("/users/%d", userID), user)
+	if err != nil {
+		return nil, err
+	}
+
+	var updatedUser User
+	if err := kc.decodeResponse(resp, &updatedUser); err != nil {
+		return nil, err
+	}
+
+	return &updatedUser, nil
 }
 
 // CreateUser создает нового пользователя
@@ -447,26 +502,22 @@ func (kc *KaitenClient) DeleteUser(userID int) error {
 	return nil
 }
 
-// GetTaskTypes возвращает список типов задач из Kaiten
-func (kc *KaitenClient) GetTaskTypes() ([]TaskType, error) {
-	// Выполняем GET-запрос к эндпоинту /api/latest/card-types
-	resp, err := kc.doRequest("GET", "/card-types", nil)
+func (kc *KaitenClient) getTaskTypes() ([]TaskType, error) {
+	resp, err := kc.doRequestWithBody("GET", "/card-types", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch task types: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	// Декодируем ответ в список типов задач
 	var taskTypes []TaskType
-	if err := json.NewDecoder(resp.Body).Decode(&taskTypes); err != nil {
+	if err := kc.decodeResponse(resp, &taskTypes); err != nil {
 		return nil, fmt.Errorf("failed to decode task types: %w", err)
 	}
 
 	return taskTypes, nil
+}
+
+func (kc *KaitenClient) GetTaskTypes() ([]TaskType, error) {
+	return kc.getTaskTypes()
 }
 
 // GetCards возвращает список всех карт
@@ -489,50 +540,21 @@ func (kc *KaitenClient) GetCards() ([]Card, error) {
 	return cards, nil
 }
 
-// GetCard возвращает информацию о конкретной карте по ID
-func (kc *KaitenClient) GetCard(cardID int) (*Card, error) {
-	resp, err := kc.doRequest("GET", fmt.Sprintf("/cards/%d", cardID), nil)
+func (kc *KaitenClient) getCard(cardID int) (*Card, error) {
+	resp, err := kc.doRequestWithBody("GET", fmt.Sprintf("/cards/%d", cardID), nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
 
 	var card Card
-	if err := json.NewDecoder(resp.Body).Decode(&card); err != nil {
+	if err := kc.decodeResponse(resp, &card); err != nil {
 		return nil, err
 	}
 
 	return &card, nil
 }
-
-// CreateCard создает новую карту
-func (kc *KaitenClient) CreateCard(card *Card) (*Card, error) {
-	body, err := json.Marshal(card)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := kc.doRequest("POST", "/cards", body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK { // || resp.StatusCode != http.StatusCreated
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	// Декодируем ответ
-	var createdCard Card
-	if err := json.NewDecoder(resp.Body).Decode(&createdCard); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return &createdCard, nil
+func (kc *KaitenClient) GetCard(cardID int) (*Card, error) {
+	return kc.getCard(cardID)
 }
 
 // CardUpdate описывает данные для обновления карточки
@@ -552,38 +574,47 @@ type CardUpdate struct {
 	Properties    map[string]interface{} `json:"properties,omitempty"`
 }
 
-// UpdateCard обновляет карточку с указанным ID
+func (kc *KaitenClient) createCard(card *Card) (*Card, error) {
+	resp, err := kc.doRequestWithBody("POST", "/cards", card)
+	if err != nil {
+		return nil, err
+	}
+
+	var createdCard Card
+	if err := kc.decodeResponse(resp, &createdCard); err != nil {
+		return nil, err
+	}
+
+	return &createdCard, nil
+}
+
+func (kc *KaitenClient) updateCard(cardID int, update CardUpdate) error {
+	resp, err := kc.doRequestWithBody("PATCH", fmt.Sprintf("/cards/%d", cardID), update)
+	if err != nil {
+		return err
+	}
+
+	return kc.decodeResponse(resp, nil)
+}
+
+func (kc *KaitenClient) CreateCard(card *Card) (*Card, error) {
+	return kc.createCard(card)
+}
+
 func (kc *KaitenClient) UpdateCard(cardID int, update CardUpdate) error {
-	// Преобразуем данные обновления в JSON
-	body, err := json.Marshal(update)
-	if err != nil {
-		return fmt.Errorf("failed to marshal update data: %w", err)
+	return kc.updateCard(cardID, update)
+}
+
+func (kc *KaitenClient) updateCardProperties(cardID int, properties map[string]interface{}) error {
+	updateData := CardUpdate{
+		Properties: properties,
 	}
 
-	// Создаем PATCH-запрос
-	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cards/%d", kc.baseURL, cardID), bytes.NewBuffer(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
+	return kc.updateCard(cardID, updateData)
+}
 
-	// Устанавливаем заголовки
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+kc.token)
-	req.Header.Set("Content-Type", "application/json")
-
-	// Выполняем запрос
-	resp, err := kc.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Проверяем статус ответа
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	return nil
+func (kc *KaitenClient) UpdateCardProperties(cardID int, properties map[string]interface{}) error {
+	return kc.updateCardProperties(cardID, properties)
 }
 
 // DeleteCard удаляет карту по ID
@@ -606,43 +637,19 @@ type TagRequest struct {
 	Name string `json:"name"` // Имя тега
 }
 
-// AddTagToCard добавляет тег к карточке с указанным ID
+func (kc *KaitenClient) addTagToCard(cardID int, tagName string) error {
+	tagRequest := TagRequest{Name: tagName}
+
+	resp, err := kc.doRequestWithBody("POST", fmt.Sprintf("/cards/%d/tags", cardID), tagRequest)
+	if err != nil {
+		return err
+	}
+
+	return kc.decodeResponse(resp, nil)
+}
+
 func (kc *KaitenClient) AddTagToCard(cardID int, tagName string) error {
-	// Создаем данные для добавления тега
-	tagRequest := TagRequest{
-		Name: tagName,
-	}
-
-	// Преобразуем данные в JSON
-	body, err := json.Marshal(tagRequest)
-	if err != nil {
-		return fmt.Errorf("failed to marshal tag data: %w", err)
-	}
-
-	// Создаем POST-запрос
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/cards/%d/tags", kc.baseURL, cardID), bytes.NewBuffer(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Устанавливаем заголовки
-	req.Header.Set("Authorization", "Bearer "+kc.token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	// Выполняем запрос
-	resp, err := kc.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Проверяем статус ответа
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	return nil
+	return kc.addTagToCard(cardID, tagName)
 }
 
 // Add children Request
@@ -650,43 +657,19 @@ type AddChildrenRequest struct {
 	CardID int `json:"card_id"`
 }
 
-// AddTagToCard добавляет тег к карточке с указанным ID
+func (kc *KaitenClient) addChildrenToCard(cardID int, childrenCardID int) error {
+	requestData := AddChildrenRequest{CardID: childrenCardID}
+
+	resp, err := kc.doRequestWithBody("POST", fmt.Sprintf("/cards/%d/children", cardID), requestData)
+	if err != nil {
+		return err
+	}
+
+	return kc.decodeResponse(resp, nil)
+}
+
 func (kc *KaitenClient) AddChindrenToCard(cardID int, childrenCardID int) error {
-	// Создаем данные для добавления тега
-	requestData := AddChildrenRequest{
-		CardID: childrenCardID,
-	}
-
-	// Преобразуем данные в JSON
-	body, err := json.Marshal(requestData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal tag data: %w", err)
-	}
-
-	// Создаем POST-запрос
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/cards/%d/children", kc.baseURL, cardID), bytes.NewBuffer(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Устанавливаем заголовки
-	req.Header.Set("Authorization", "Bearer "+kc.token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	// Выполняем запрос
-	resp, err := kc.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Проверяем статус ответа
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	return nil
+	return kc.addChildrenToCard(cardID, childrenCardID)
 }
 
 // Task описывает задачу для создания карточки
@@ -708,18 +691,25 @@ type ScheduleFile struct {
 	Schedule Schedule `json:"schedule"`
 }
 
-// LoadTasksFromJSON загружает задачи из JSON-файла и возвращает описание для создания карточек
-func LoadTasksFromJSON(filePath string) (*Schedule, error) {
+func loadFromJSON(filePath string, v interface{}) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
-	var scheduleFile ScheduleFile
 	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&scheduleFile); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON: %w", err)
+	if err := decoder.Decode(v); err != nil {
+		return fmt.Errorf("failed to decode JSON: %w", err)
+	}
+
+	return nil
+}
+
+func LoadTasksFromJSON(filePath string) (*Schedule, error) {
+	var scheduleFile ScheduleFile
+	if err := loadFromJSON(filePath, &scheduleFile); err != nil {
+		return nil, err
 	}
 
 	return &scheduleFile.Schedule, nil
@@ -740,70 +730,63 @@ func ExtractWorkCode(parentTitle string) (string, error) {
 	return match[1], nil
 }
 
-func main() {
+type CRUD interface {
+	Create(interface{}) (interface{}, error)
+	Update(int, interface{}) error
+	Delete(int) error
+}
 
-	// Определение флагов командной строки
+type CardService struct {
+	client *KaitenClient
+}
+
+func (cs *CardService) Create(item interface{}) (interface{}, error) {
+	card, ok := item.(*Card)
+	if !ok {
+		return nil, fmt.Errorf("invalid type")
+	}
+	return cs.client.createCard(card)
+}
+
+func (cs *CardService) Update(id int, item interface{}) error {
+	update, ok := item.(CardUpdate)
+	if !ok {
+		return fmt.Errorf("invalid type")
+	}
+	return cs.client.updateCard(id, update)
+}
+
+func (cs *CardService) Delete(id int) error {
+	return cs.client.DeleteCard(id)
+}
+
+func parseFlags() (string, string) {
 	tasksFile := flag.String("tasks", "", "Path to the tasks JSON file (required)")
 	configFile := flag.String("config", "config.json", "Path to the configuration file (optional, default: config.json)")
 
 	flag.Parse()
 
-	// Проверка обязательного аргумента
 	if *tasksFile == "" {
 		fmt.Println("Error: The 'tasks' flag is required.")
-		flag.Usage() // Вывод справки по использованию
-		//os.Exit(1)
+		flag.Usage()
 		*tasksFile = "tasks.json"
 	}
 
+	return *tasksFile, *configFile
+}
+
+func main() {
+
+	tasksFile, configFile := parseFlags()
+
 	// Загрузка конфигурации (если указан файл конфигурации)
-	if *configFile != "" {
-		fmt.Printf("Loading configuration from: %s\n", *configFile)
-		// Здесь можно добавить логику для загрузки конфигурации
+	if configFile != "" {
+		fmt.Printf("Loading configuration from: %s\n", configFile)
 	} else {
 		fmt.Println("Using default configuration.")
 	}
 
 	client := CreateKaitenClient("9ecb4b54-508a-4d1e-ad99-c1c4a04847bb")
-
-	// Создаем кастомный HTTP-клиент с отключенной проверкой сертификата
-	// client = &http.Client{
-	// 	Transport: &http.Transport{
-	// 		TLSClientConfig: &tls.Config{
-	// 			InsecureSkipVerify: true, // Отключаем проверку сертификата
-	// 		},
-	// 	},
-	// }
-
-	// // Загрузите сертификат CA
-	// caCert, err := ioutil.ReadFile("path/to/your/ca.crt")
-	// if err != nil {
-	// 	log.Fatalf("Failed to read CA certificate: %v", err)
-	// }
-
-	// // Создайте пул сертификатов и добавьте CA
-	// caCertPool := x509.NewCertPool()
-	// caCertPool.AppendCertsFromPEM(caCert)
-
-	// // Создайте кастомный TLS-конфиг
-	// tlsConfig := &tls.Config{
-	// 	RootCAs: caCertPool, // Используем кастомный пул CA
-	// }
-
-	// // Создайте кастомный HTTP-клиент
-	// client := &http.Client{
-	// 	Transport: &http.Transport{
-	// 		TLSClientConfig: tlsConfig,
-	// 	},
-	// }
-
-	// // Получение списка пользователей
-	// users, err := client.GetUsers()
-	// if err != nil {
-	// 	fmt.Println("Error getting users:", err)
-	// 	return
-	// }
-	// fmt.Println("Users:", users)
 
 	// Получение данных текущего пользователя
 	currentUser, err := client.GetCurrentUser()
@@ -812,49 +795,8 @@ func main() {
 		return
 	}
 
-	// // Печать данных текущего пользователя
-	// PrintUser(*currentUser)
-	// fmt.Println("-----------------------------------------")
-
-	// // Получение списка карточек для пользователя с ID
-	// userID := currentUser.ID
-	// cards, err := client.GetUserCards(userID)
-	// if err != nil {
-	// 	fmt.Println("Error getting user cards:", err)
-	// 	return
-	// }
-
-	// PrintCardsList(cards, userID)
-	// fmt.Println("-----------------------------------------")
-
-	// limit := 100
-	// offset := 0
-
-	// fmt.Printf("Get card by pages: limit=%d, offset=%d\n", limit, offset)
-
-	// cardsByMemberIDs, err := client.GetUserCardsByMemberIDs(userID, limit, offset)
-	// if err != nil {
-	// 	fmt.Println("Error getting user cards:", err)
-	// 	return
-	// }
-
-	// PrintCardsList(cardsByMemberIDs, userID)
-	// fmt.Println("-----------------------------------------")
-
-	// allUserCards, err := client.GetAllUserCards(userID)
-	// if err != nil {
-	// 	fmt.Println("Error getting all user cards:", err)
-	// 	return
-	// }
-
-	// // Печать списка всех карточек
-	// fmt.Printf("All cards for user %d:\n", 11)
-	// fmt.Printf("Cards count=%d :\n", len(allUserCards))
-	// fmt.Println("Cards:", allUserCards)
-	// fmt.Println("-----------------------------------------")
-
 	// Загрузка задач из JSON-файла
-	schedule, err := LoadTasksFromJSON(*tasksFile)
+	schedule, err := LoadTasksFromJSON(tasksFile)
 	if err != nil {
 		fmt.Println("Error loading tasks from JSON file:", err)
 		return
@@ -936,6 +878,12 @@ func main() {
 		} else {
 			fmt.Printf("Created card: %s (ID: %d)\n", createdCard.Title, createdCard.ID)
 		}
+
+		// cardService := &CardService{client: client}
+		// createdCard, err := cardService.Create(card)
+		// if err != nil {
+		// 	fmt.Println("Error creating card:", err)
+		// }
 
 		if createdCard.TypeID == int(TaskDeliveryTaskType) || createdCard.TypeID == int(TaskDiscoveryTaskType) {
 
