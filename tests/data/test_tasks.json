@@ -1,0 +1,14 @@
+{
+    "schedule": {
+      "parent": "123",
+      "responsible": "user@example.com",
+      "tasks": [
+        {
+          "type": "delivery", "size": 8, "title": "Task 1"
+        },
+        {
+          "type": "discovery", "size": 16, "title": "Task 2"
+        }
+      ]
+    }
+  }

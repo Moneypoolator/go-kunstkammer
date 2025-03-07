@@ -1,7 +1,7 @@
 {
     "schedule": {
-        "parent": "49231",
-        "responsible": "rkukushkin@atollis.com",
+        "parent": "48961",
+        "responsible": "dshepelev@atollis.com",
         "tasks": [
             { "type": "delivery", "size": 4, "title": "Воспроизвести тестовый случай на дев-стенде и машине разработчика" },
             { "type": "delivery", "size": 16, "title": "Исправить построение изолиний по текущей выбранной ПМ" }
