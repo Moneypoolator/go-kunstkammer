@@ -1,3 +1,3 @@
-
+#!/bin/bash
 go test -v ./internal/utils
 go test -cover
