@@ -17,44 +17,6 @@ type KaitenClient struct {
 	token   string
 }
 
-// func createHTTPClient() *http.Client {
-// 	return &http.Client{
-// 		Transport: &http.Transport{
-// 			TLSClientConfig: &tls.Config{
-// 				InsecureSkipVerify: true, // Отключаем проверку сертификата
-// 			},
-// 		},
-// 	}
-// }
-
-// func createTLSConfig(caCertPath string) (*tls.Config, error) {
-// 	caCert, err := os.ReadFile(caCertPath)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
-// 	}
-
-// 	caCertPool := x509.NewCertPool()
-// 	caCertPool.AppendCertsFromPEM(caCert)
-
-// 	return &tls.Config{
-// 		RootCAs: caCertPool,
-// 	}, nil
-// }
-
-// func createHTTPClientWithCertificate(crtFileName string) *http.Client {
-// 	tlsConfig, err := createTLSConfig(crtFileName)
-// 	if err != nil {
-// 		log.Fatalf("Failed to create TLS config: %v", err)
-// 	}
-
-// 	client := &http.Client{
-// 		Transport: &http.Transport{
-// 			TLSClientConfig: tlsConfig,
-// 		},
-// 	}
-// 	return client
-// }
-
 func CreateKaitenClient(token string) *KaitenClient {
 	//client := createHTTPClient()
 	return &KaitenClient{
@@ -97,9 +59,16 @@ func (kc *KaitenClient) doRequestWithBody(method, path string, body interface{})
 }
 
 func (kc *KaitenClient) decodeResponse(resp *http.Response, v interface{}) error {
+
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
+
+	if v == nil {
+		return nil // Если не нужно декодировать ответ
+	}
+
 	return json.NewDecoder(resp.Body).Decode(v)
 }
