@@ -6,6 +6,7 @@ import (
 	"kunstkammer/internal/api"
 	"kunstkammer/internal/models"
 	"kunstkammer/internal/utils"
+	"kunstkammer/pkg/config"
 	"strconv"
 )
 
@@ -776,6 +777,19 @@ func main() {
 	// Загрузка конфигурации (если указан файл конфигурации)
 	if configFile != "" {
 		fmt.Printf("Loading configuration from: %s\n", configFile)
+
+		// Загружаем конфигурацию
+		cfg, err := config.LoadConfig(configFile)
+		if err != nil {
+			fmt.Printf("Failed to load config: %v\n", err)
+			return
+		}
+
+		// Используем конфигурацию
+		fmt.Printf("Token: %s\n", cfg.Token)
+		fmt.Printf("BaseURL: %s\n", cfg.BaseURL)
+		fmt.Printf("LogLevel: %s\n", cfg.LogLevel)
+
 	} else {
 		fmt.Println("Using default configuration.")
 	}

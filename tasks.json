@@ -3,8 +3,7 @@
         "parent": "48961",
         "responsible": "dshepelev@atollis.com",
         "tasks": [
-            { "type": "delivery", "size": 4, "title": "Воспроизвести тестовый случай на дев-стенде и машине разработчика" },
-            { "type": "delivery", "size": 16, "title": "Исправить построение изолиний по текущей выбранной ПМ" }
+            { "type": "delivery", "size": 4, "title": "Написать тест на Filling_fviaf_config с различной сортировкой  " }
         ]
     }
 }

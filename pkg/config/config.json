@@ -1,0 +1,5 @@
+{
+    "token": "your-kaiten-api-token",
+    "base_url": "https://kaiten.norsoft.ru/api/latest",
+    "log_level": "debug"
+}
