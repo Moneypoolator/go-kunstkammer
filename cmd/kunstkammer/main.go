@@ -29,6 +29,8 @@ func main() {
 
 	tasksFile, configFile := parseFlags()
 
+	var cfg config.Config
+
 	// Загрузка конфигурации (если указан файл конфигурации)
 	if configFile != "" {
 		fmt.Printf("Loading configuration from: %s\n", configFile)
@@ -49,7 +51,7 @@ func main() {
 		fmt.Println("Using default configuration.")
 	}
 
-	client := api.CreateKaitenClient("9ecb4b54-508a-4d1e-ad99-c1c4a04847bb")
+	client := api.CreateKaitenClient(cfg.Token)
 
 	// Получение данных текущего пользователя
 	currentUser, err := client.GetCurrentUser()

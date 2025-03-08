@@ -1,9 +1,10 @@
 {
     "schedule": {
         "parent": "48961",
-        "responsible": "dshepelev@atollis.com",
+        "responsible": "myemail@myemailserver.com",
         "tasks": [
-            { "type": "delivery", "size": 4, "title": "Написать тест на Filling_fviaf_config с различной сортировкой  " }
+            { "type": "delivery", "size": 4, "title": "Название задачи 1 " },
+            { "type": "delivery", "size": 4, "title": "Название задачи 2 " }
         ]
     }
 }
