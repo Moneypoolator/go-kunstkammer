@@ -8,7 +8,6 @@ import (
 type TaskType struct {
 	ID   int    `json:"id"`   // ID типа задачи
 	Name string `json:"name"` // Название типа задачи
-	// Добавьте другие поля, если они есть в API
 }
 
 // TaskType описывает тип задачи в Kaiten
