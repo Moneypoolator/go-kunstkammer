@@ -8,7 +8,7 @@ import (
 
 func TestLoadTasksFromJSON(t *testing.T) {
 	// Путь к тестовому файлу
-	testFilePath := filepath.Join("testdata", "../../tests/data/test_tasks.json")
+	testFilePath := filepath.Join("testdata", "test_tasks.json")
 
 	// Загружаем задачи из JSON-файла
 	schedule, err := LoadTasksFromJSON(testFilePath)
