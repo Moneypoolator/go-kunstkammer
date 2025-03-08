@@ -7,21 +7,17 @@ import (
 	"net/http"
 )
 
-const (
-	baseURL = "https://kaiten.norsoft.ru/api/latest"
-)
-
 type KaitenClient struct {
 	client  *http.Client
 	baseURL string
 	token   string
 }
 
-func CreateKaitenClient(token string) *KaitenClient {
+func CreateKaitenClient(token string, kaitenURL string) *KaitenClient {
 	//client := createHTTPClient()
 	return &KaitenClient{
 		client:  &http.Client{}, // lcient
-		baseURL: baseURL,
+		baseURL: kaitenURL,
 		token:   token,
 	}
 }

@@ -29,7 +29,7 @@ func main() {
 
 	tasksFile, configFile := parseFlags()
 
-	var cfg config.Config
+	var env config.Config
 
 	// Загрузка конфигурации (если указан файл конфигурации)
 	if configFile != "" {
@@ -47,11 +47,13 @@ func main() {
 		fmt.Printf("BaseURL: %s\n", cfg.BaseURL)
 		fmt.Printf("LogLevel: %s\n", cfg.LogLevel)
 
+		env = *cfg
 	} else {
-		fmt.Println("Using default configuration.")
+		fmt.Println("Empty config file name")
+		return
 	}
 
-	client := api.CreateKaitenClient(cfg.Token)
+	client := api.CreateKaitenClient(env.Token, env.BaseURL)
 
 	// Получение данных текущего пользователя
 	currentUser, err := client.GetCurrentUser()
