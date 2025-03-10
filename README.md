@@ -73,7 +73,7 @@ cd go-kunstkammer
 Соберите исполняемый файл:
 
 ```bash
-go build -o kunstkammer ./cmd/kunstkammer/main.go
+go build -o kunstkammer ./cmd/kunstkammer/*.go 
 ```
 
 Исполняемый файл будет создан в текущей директории с именем `kunstkammer`.
