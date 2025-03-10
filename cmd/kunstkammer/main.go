@@ -7,6 +7,8 @@ import (
 	"kunstkammer/internal/models"
 	"kunstkammer/internal/utils"
 	"kunstkammer/pkg/config"
+	"log/slog"
+	"os"
 	"strconv"
 )
 
@@ -27,56 +29,60 @@ func parseFlags() (string, string) {
 
 func main() {
 
+	// logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	tasksFile, configFile := parseFlags()
 
 	var env config.Config
 
 	// Загрузка конфигурации (если указан файл конфигурации)
 	if configFile != "" {
-		fmt.Printf("Loading configuration from: %s\n", configFile)
+		slog.Info("Loading configuration from", "file", configFile)
 
 		// Загружаем конфигурацию
 		cfg, err := config.LoadConfig(configFile)
 		if err != nil {
-			fmt.Printf("Failed to load config: %v\n", err)
+			slog.Error("Failed to load config", "error", err)
 			return
 		}
 
 		// Используем конфигурацию
-		fmt.Printf("Token: %s\n", cfg.Token)
-		fmt.Printf("BaseURL: %s\n", cfg.BaseURL)
-		fmt.Printf("LogLevel: %s\n", cfg.LogLevel)
+		slog.Debug("Config loaded", "Token", cfg.Token)
+		slog.Debug("Config loaded", "BaseURL", cfg.BaseURL)
+		slog.Debug("Config loaded", "LogLevel", cfg.LogLevel)
 
 		env = *cfg
 	} else {
-		fmt.Println("Empty config file name")
-		return
-	}
-
-	client := api.CreateKaitenClient(env.Token, env.BaseURL)
-
-	// Получение данных текущего пользователя
-	currentUser, err := client.GetCurrentUser()
-	if err != nil {
-		fmt.Println("Error getting current user:", err)
+		slog.Error("Empty config file name")
 		return
 	}
 
 	// Загрузка задач из JSON-файла
 	schedule, err := utils.LoadTasksFromJSON(tasksFile)
 	if err != nil {
-		fmt.Println("Error loading tasks from JSON file:", err)
+		slog.Error("Loading tasks from JSON file", "error", err)
 		return
 	}
 
 	// Вывод задач
-	fmt.Printf("Parent: %s\n", schedule.Parent)
-	fmt.Printf("Responsible: %s\n", schedule.Responsible)
+	slog.Debug("Tasks loaded", "Parent", schedule.Parent)
+	slog.Debug("Tasks loaded", "Responsible", schedule.Responsible)
+
+	client := api.CreateKaitenClient(env.Token, env.BaseURL)
+
+	// Получение данных текущего пользователя
+	currentUser, err := client.GetCurrentUser()
+	if err != nil {
+		slog.Error("Getting current user", "error", err)
+		return
+	}
 
 	// Преобразуем email ответственного в ID пользователя
 	responsibleID, err := client.GetUserIDByEmail(schedule.Responsible)
 	if responsibleID == 0 || err != nil {
-		fmt.Println("Error getting responsible user ID:", err)
+		slog.Warn("Getting responsible user ID:", "error", err)
 		responsibleID = currentUser.ID
 		// return
 	}
@@ -84,13 +90,13 @@ func main() {
 	// Преобразуем ID родительской карточки из строки в число
 	parentID, err := strconv.Atoi(schedule.Parent)
 	if err != nil {
-		fmt.Println("Error parsing parent ID:", err)
+		slog.Error("Parsing parent ID", "error", err)
 		return
 	}
 
 	parentCard, err := client.GetCard(parentID)
 	if err != nil {
-		fmt.Println("Error parsing parent card by ID:", err)
+		slog.Error("Parsing parent card by ID", "error", err)
 		return
 	}
 
@@ -98,14 +104,15 @@ func main() {
 	if len(parentCard.Title) > 0 {
 		workCode, err := utils.ExtractWorkCode(parentCard.Title)
 		if err != nil {
-			fmt.Println("Error:", err)
+			slog.Warn("Extract Work Code", "error", err)
 			// return
 		} else {
 			parentCardWorkCode = workCode
+			slog.Debug("Work code", "code", workCode)
 		}
 		//fmt.Printf("Work code: %s\n", workCode)
 	} else {
-		fmt.Println("Error parent card title is empty")
+		slog.Warn("Parent card title is empty")
 	}
 
 	// Создаем карточки для каждой задачи
@@ -113,7 +120,7 @@ func main() {
 		// Определяем тип задачи
 		taskTypeID, err := models.GetTaskTypeByName(task.Type)
 		if err != nil {
-			fmt.Printf("Error getting task type ID for '%s': %v\n", task.Type, err)
+			slog.Error("Getting task type ID", "task_type", task.Type, "error", err)
 			continue
 		}
 
@@ -141,10 +148,10 @@ func main() {
 		// Создаем карточку в Kaiten
 		createdCard, err := client.CreateCard(card)
 		if err != nil {
-			fmt.Printf("Error creating card '%s': %v\n", task.Title, err)
+			slog.Error("Creating card", "Title", task.Title, "error", err)
 			continue
 		} else {
-			fmt.Printf("Created card: %s (ID: %d)\n", createdCard.Title, createdCard.ID)
+			slog.Info("Created card", "Title", createdCard.Title, "ID", createdCard.ID)
 		}
 
 		// cardService := &CardService{client: client}
@@ -171,44 +178,35 @@ func main() {
 
 			err = client.UpdateCard(createdCard.ID, *updateData)
 			if err != nil {
-				fmt.Printf("Error updating card '%s': %v\n", titleUpdate, err)
+				slog.Error("Updating card", "Title", titleUpdate, "error", err)
 			} else {
-				fmt.Printf("Updated card: %s (ID: %d)\n", titleUpdate, createdCard.ID)
+				slog.Info("Updated card", "Title", titleUpdate, "ID", createdCard.ID)
 			}
 		}
 
 		err = client.AddChindrenToCard(parentID, createdCard.ID)
 		if err != nil {
-			fmt.Println("Error adding children to card:", err)
+			slog.Error("Adding children to card", "error", err)
 			//return
 		}
 
 		// Добавляем тег к карточке
 		err = client.AddTagToCard(createdCard.ID, "ГГИС")
 		if err != nil {
-			fmt.Println("Error adding tag to card:", err)
+			slog.Error("Adding tag to card", "error", err)
 			//return
 		}
 
 		// Добавляем тег к карточке
 		err = client.AddTagToCard(createdCard.ID, "C++")
 		if err != nil {
-			fmt.Println("Error adding tag to card:", err)
+			slog.Error("Adding tag to card:", "error", err)
 			//return
 		}
 
 	}
 
 }
-
-// func PrintCardsList(cards []Card, userID int) {
-// 	fmt.Printf("Cards count=%d :\n", len(cards))
-// 	fmt.Printf("Cards for user %d:\n", userID)
-// 	for _, card := range cards {
-// 		fmt.Printf("Card ID: %d, Title: %s, Description: %s, ColumnID: %d, BoardID: %d\n",
-// 			card.ID, card.Title, card.Description, card.ColumnID, card.BoardID)
-// 	}
-// }
 
 // Вспомогательные функции для создания указателей
 func stringPtr(s string) *string {
