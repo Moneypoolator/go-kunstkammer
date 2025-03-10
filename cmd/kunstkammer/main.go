@@ -218,3 +218,7 @@ func stringPtr(s string) *string {
 func intPtr(i int) *int {
 	return &i
 }
+
+func Ptr[T any](value T) *T {
+	return &value
+}

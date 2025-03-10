@@ -20,6 +20,12 @@ sudo apt update
 sudo apt install golang
 ```
 
+Лучше ставить из snap репозитория, там будет самая свежая версия:
+
+```bash
+sudo snap install go
+```
+
 Проверьте установку:
 
 ```bash
@@ -67,7 +73,7 @@ cd go-kunstkammer
 Соберите исполняемый файл:
 
 ```bash
-go build -o kunstkammer
+go build -o kunstkammer ./cmd/kunstkammer/main.go
 ```
 
 Исполняемый файл будет создан в текущей директории с именем `kunstkammer`.
