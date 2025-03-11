@@ -9,19 +9,6 @@ import (
 	"strconv"
 )
 
-// Вспомогательные функции для создания указателей
-func stringPtr(s string) *string {
-	return &s
-}
-
-func intPtr(i int) *int {
-	return &i
-}
-
-func Ptr[T any](value T) *T {
-	return &value
-}
-
 func ProcessTasks(token string, kaitenURL string, schedule *models.Schedule) error {
 
 	client := api.CreateKaitenClient(token, kaitenURL)
@@ -38,7 +25,6 @@ func ProcessTasks(token string, kaitenURL string, schedule *models.Schedule) err
 	if responsibleID == 0 || err != nil {
 		slog.Warn("Getting responsible user ID:", "error", err)
 		responsibleID = currentUser.ID
-		// return
 	}
 
 	// Преобразуем ID родительской карточки из строки в число
@@ -59,12 +45,10 @@ func ProcessTasks(token string, kaitenURL string, schedule *models.Schedule) err
 		workCode, err := utils.ExtractWorkCode(parentCard.Title)
 		if err != nil {
 			slog.Warn("Extract Work Code", "error", err)
-			// return
 		} else {
 			parentCardWorkCode = workCode
 			slog.Debug("Work code", "code", workCode)
 		}
-		//fmt.Printf("Work code: %s\n", workCode)
 	} else {
 		slog.Warn("Parent card title is empty")
 	}
@@ -118,7 +102,7 @@ func ProcessTasks(token string, kaitenURL string, schedule *models.Schedule) err
 
 			titleUpdate := fmt.Sprintf("[CAD]:TS.%s.%d. %s", parentCardWorkCode, createdCard.ID, createdCard.Title)
 			updateData := &models.CardUpdate{
-				Title: stringPtr(titleUpdate),
+				Title: utils.StringPtr(titleUpdate),
 				// BoardID:      intPtr(192),
 				// ColumnID:     intPtr(776),
 				// LaneID:       intPtr(1275),

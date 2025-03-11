@@ -67,7 +67,7 @@ func main() {
 	slog.Debug("Tasks loaded", "Parent", schedule.Parent)
 	slog.Debug("Tasks loaded", "Responsible", schedule.Responsible)
 
-	err = ProcessTasks(env.Token, env.BaseURL, schedule)
+	err = AsyncProcessTasks(env.Token, env.BaseURL, schedule)
 	if err != nil {
 		slog.Error("Process Tasks", "error", err)
 	}
