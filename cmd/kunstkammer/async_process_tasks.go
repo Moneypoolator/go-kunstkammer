@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"time"
 )
 
 func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule) error {
@@ -56,15 +57,29 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 
 	// Канал для передачи ошибок
 	errorsChannel := make(chan error, len(schedule.Tasks))
+
 	// WaitGroup для ожидания завершения всех горутин
 	var tasksCreationWaitGroup sync.WaitGroup
+
+	// // Семафор для ограничения количества одновременных запросов
+	// maxConcurrent := 5
+	// semaphore := make(chan struct{}, maxConcurrent)
+
+	limiter := time.Tick(500 * time.Millisecond)
 
 	// Создаем карточки для каждой задачи асинхронно
 	for _, task := range schedule.Tasks {
 		tasksCreationWaitGroup.Add(1) // Увеличиваем счетчик WaitGroup
 
+		// // Захватываем семафор
+		// semaphore <- struct{}{}
+
 		go func(task models.Task) {
 			defer tasksCreationWaitGroup.Done() // Уменьшаем счетчик WaitGroup при завершении горутины
+			// defer func() {
+			// 	// Освобождаем семафор
+			// 	<-semaphore
+			// }()
 
 			// Определяем тип задачи
 			taskTypeID, err := models.GetTaskTypeByName(task.Type)
@@ -116,6 +131,8 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 					slog.Info("Updated card", "Title", titleUpdate, "ID", createdCard.ID)
 				}
 			}
+
+			<-limiter
 
 			// Добавляем карточку как дочернюю
 			err = client.AddChindrenToCard(parentID, createdCard.ID)
