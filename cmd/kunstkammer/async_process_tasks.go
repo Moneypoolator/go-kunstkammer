@@ -65,7 +65,7 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 	// maxConcurrent := 5
 	// semaphore := make(chan struct{}, maxConcurrent)
 
-	limiter := time.Tick(500 * time.Millisecond)
+	limiter := time.Tick(1500 * time.Millisecond)
 
 	// Создаем карточки для каждой задачи асинхронно
 	for _, task := range schedule.Tasks {
