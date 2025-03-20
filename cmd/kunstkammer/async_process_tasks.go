@@ -42,6 +42,8 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 		return err
 	}
 
+	models.PrintCard(*parentCard)
+
 	parentCardWorkCode := "XXX.XX"
 	if len(parentCard.Title) > 0 {
 		workCode, err := utils.ExtractWorkCode(parentCard.Title)
@@ -53,6 +55,20 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 		}
 	} else {
 		slog.Warn("Parent card title is empty")
+	}
+
+	// sprint number
+	//"id_12": 54
+	var sprintID interface{}
+	if parentCard.Properties != nil {
+		if value, exists := parentCard.Properties["id_12"]; exists {
+			sprintID = value
+			slog.Debug("Sprint ID found in parent card", "sprintID", sprintID)
+		} else {
+			slog.Debug("Sprint ID (id_12) not found in parent card properties")
+		}
+	} else {
+		slog.Debug("Parent card has no properties")
 	}
 
 	// Канал для передачи ошибок
@@ -104,7 +120,13 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 				Properties: map[string]interface{}{
 					"id_19": "1", // Строка
 				},
+				//Properties:    make(map[string]interface{}),
 			}
+
+			if sprintID != nil {
+				card.Properties["id_12"] = sprintID
+			}
+			//card.Properties["id_19"] = "1"
 
 			// Создаем карточку в Kaiten
 			createdCard, err := client.CreateCard(card)

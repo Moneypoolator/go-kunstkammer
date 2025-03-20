@@ -1,6 +1,9 @@
 package models
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Card struct {
 	ID            int                    `json:"id"`
@@ -29,6 +32,19 @@ func PrintCard(card Card) {
 	fmt.Printf("TypeID: %d\n", card.TypeID)
 	fmt.Printf("SizeText: %s\n", card.SizeText)
 	fmt.Printf("ResponsibleID: %d\n", card.ResponsibleID)
+
+	// Вывод Properties в формате JSON
+	fmt.Println("Properties:")
+	if len(card.Properties) > 0 {
+		propsJSON, err := json.MarshalIndent(card.Properties, "  ", "  ")
+		if err != nil {
+			fmt.Println("  Error formatting properties:", err)
+		} else {
+			fmt.Println(string(propsJSON))
+		}
+	} else {
+		fmt.Println("  No properties")
+	}
 }
 
 // CardUpdate описывает данные для обновления карточки
