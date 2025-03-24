@@ -97,7 +97,7 @@ func GetTaskTypeByName(name string) (TaskIDType, error) {
 
 // Task описывает задачу для создания карточки
 type Task struct {
-	Type  string `json:"type"`  // Тип задачи (например, "delivery", "discovery")
+	Type  string `json:"type"`  // Тип задачи (например, "delivery", "discovery" -- задачи данного типа не доступны)
 	Size  int    `json:"size"`  // Размер задачи (например, 8, 16)
 	Title string `json:"title"` // Название задачи
 }
@@ -113,27 +113,3 @@ type Schedule struct {
 type ScheduleFile struct {
 	Schedule Schedule `json:"schedule"`
 }
-
-// func loadFromJSON(filePath string, v interface{}) error {
-// 	file, err := os.Open(filePath)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to open file: %w", err)
-// 	}
-// 	defer file.Close()
-
-// 	decoder := json.NewDecoder(file)
-// 	if err := decoder.Decode(v); err != nil {
-// 		return fmt.Errorf("failed to decode JSON: %w", err)
-// 	}
-
-// 	return nil
-// }
-
-// func LoadTasksFromJSON(filePath string) (*Schedule, error) {
-// 	var scheduleFile ScheduleFile
-// 	if err := loadFromJSON(filePath, &scheduleFile); err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &scheduleFile.Schedule, nil
-// }

@@ -124,7 +124,7 @@ kunstkammer -tasks tasks.json -config config.json
         "title": "Task 1"
       },
       {
-        "type": "discovery",
+        "type": "delivery",
         "size": 16,
         "title": "Task 2"
       }
@@ -141,7 +141,7 @@ kunstkammer -tasks tasks.json -config config.json
 
 - *tasks*: Список задач.
 
-- *type*: Тип задачи (например, delivery или discovery).
+- *type*: Тип задачи (например, delivery). Задачи типа __discovery__ после исправления методики не доступны для создания.
 
 - *size*: Размер задачи в часах.
 

@@ -30,3 +30,12 @@ func LoadTasksFromJSON(filePath string) (*models.Schedule, error) {
 
 	return &scheduleFile.Schedule, nil
 }
+
+func LoadReportFromJSON(filePath string) (*models.Report, error) {
+	var reportFile models.ReportFile
+	if err := loadFromJSON(filePath, &reportFile); err != nil {
+		return nil, err
+	}
+
+	return &reportFile.Report, nil
+}
