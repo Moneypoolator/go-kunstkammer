@@ -5,13 +5,14 @@ import (
 	"kunstkammer/internal/api"
 	"kunstkammer/internal/models"
 	"kunstkammer/internal/utils"
+	"kunstkammer/pkg/config"
 	"log/slog"
 	"strconv"
 	"sync"
 	"time"
 )
 
-func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule) error {
+func AsyncProcessTasks(env config.Config, token string, kaitenURL string, schedule *models.Schedule) error {
 
 	client := api.CreateKaitenClient(token, kaitenURL)
 
@@ -90,7 +91,7 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 		// // Захватываем семафор
 		// semaphore <- struct{}{}
 
-		go func(task models.Task) {
+		go func(env config.Config, task models.Task) {
 			defer tasksCreationWaitGroup.Done() // Уменьшаем счетчик WaitGroup при завершении горутины
 			// defer func() {
 			// 	// Освобождаем семафор
@@ -109,9 +110,9 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 			card := &models.Card{
 				ID:            0,
 				Title:         task.Title,
-				BoardID:       192,
-				ColumnID:      776,
-				LaneID:        1275,
+				BoardID:       env.BoardID,  // 192,
+				ColumnID:      env.ColumnID, // 776,
+				LaneID:        env.LaneID,   // 1275,
 				TypeID:        int(taskTypeID),
 				SizeText:      fmt.Sprintf("%d ч", task.Size),
 				ParentID:      parentID,
@@ -164,15 +165,15 @@ func AsyncProcessTasks(token string, kaitenURL string, schedule *models.Schedule
 			}
 
 			// Добавляем теги к карточке
-			tags := []string{"ГГИС", "C++"}
-			for _, tag := range tags {
+			// tags := []string{"ГГИС", "C++"}
+			for _, tag := range env.Tags {
 				err = client.AddTagToCard(createdCard.ID, tag)
 				if err != nil {
 					slog.Error("Adding tag to card", "tag", tag, "error", err)
 					errorsChannel <- err
 				}
 			}
-		}(task)
+		}(env, task)
 	}
 
 	// Ожидаем завершения всех горутин

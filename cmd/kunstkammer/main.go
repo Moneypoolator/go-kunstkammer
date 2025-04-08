@@ -48,6 +48,13 @@ func main() {
 		slog.Debug("Config loaded", "Token", cfg.Token)
 		slog.Debug("Config loaded", "BaseURL", cfg.BaseURL)
 		slog.Debug("Config loaded", "LogLevel", cfg.LogLevel)
+		slog.Debug("Config loaded", "BoardID", cfg.BoardID)
+		slog.Debug("Config loaded", "ColumnID", cfg.ColumnID)
+		slog.Debug("Config loaded", "LaneID", cfg.LaneID)
+
+		for _, tag := range cfg.Tags {
+			slog.Debug("Config loaded", "Tag", tag)
+		}
 
 		env = *cfg
 	} else {
@@ -68,7 +75,7 @@ func main() {
 		slog.Debug("Tasks loaded", "Parent", schedule.Parent)
 		slog.Debug("Tasks loaded", "Responsible", schedule.Responsible)
 
-		err = AsyncProcessTasks(env.Token, env.BaseURL, schedule)
+		err = AsyncProcessTasks(env, env.Token, env.BaseURL, schedule)
 		if err != nil {
 			slog.Error("Process Tasks", "error", err)
 		}

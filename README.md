@@ -155,7 +155,11 @@ kunstkammer -tasks tasks.json -config config.json
 {
   "token": "your-kaiten-api-token",
   "base_url": "https://kaiten-host-name/api/latest",
-  "log_level": "debug"
+  "log_level": "debug",
+  "board_id": 192,
+  "column_id": 776,
+  "lane_id": 1275,
+  "tags": ["ГГИС", "C++"]
 }
 ```
 
@@ -166,6 +170,14 @@ kunstkammer -tasks tasks.json -config config.json
 - *base_url*: Базовый URL API Kaiten.
 
 - *log_level*: Уровень логирования (debug, info, error).
+
+- *"board_id"*: Номер доски в Kaiten, по-умолчанию 192.
+
+- *"column_id"*: Номер колонки в Kaiten, по-умолчанию 776.
+
+- *"lane_id"*: Номер дорожки в Kaiten, по-умолчанию 1275.
+
+- *"tags"*: Список тэког, которыми помечается карточка, по-умолчанию "ГГИС", "C++".
 
 ## Запуск модульных тестов
 

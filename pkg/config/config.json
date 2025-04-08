@@ -1,5 +1,9 @@
 {
     "token": "your-kaiten-api-token",
     "base_url": "https://<your-kaiten-host>/api/latest",
-    "log_level": "debug"
+    "log_level": "debug",
+    "board_id": 192,
+	"column_id": 776,
+	"lane_id": 1275,
+    "tags": ["ГГИС", "C++"]
 }

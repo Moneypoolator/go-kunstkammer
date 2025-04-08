@@ -8,9 +8,13 @@ import (
 
 // Config представляет структуру конфигурации приложения.
 type Config struct {
-	Token    string `json:"token"`     // Токен для доступа к API Kaiten
-	BaseURL  string `json:"base_url"`  // Базовый URL API Kaiten
-	LogLevel string `json:"log_level"` // Уровень логирования (debug, info, error)
+	Token    string   `json:"token"`     // Токен для доступа к API Kaiten
+	BaseURL  string   `json:"base_url"`  // Базовый URL API Kaiten
+	LogLevel string   `json:"log_level"` // Уровень логирования (debug, info, error)
+	BoardID  int      `json:"board_id"`  // по-умолчанию  192,
+	ColumnID int      `json:"column_id"` // по-умолчанию  776,
+	LaneID   int      `json:"lane_id"`   // по-умолчанию  1275
+	Tags     []string `json:"tags"`      // Список задач
 }
 
 // LoadConfig загружает конфигурацию из JSON-файла или переменных окружения.
