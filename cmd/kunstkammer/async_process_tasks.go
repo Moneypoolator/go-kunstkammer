@@ -119,7 +119,7 @@ func AsyncProcessTasks(env config.Config, token string, kaitenURL string, schedu
 				MemberIDs:     []int{responsibleID},
 				ResponsibleID: responsibleID,
 				Properties: map[string]interface{}{
-					"id_19": "1", // Строка
+					"id_19": "1", // Строка CppRole RoleType = 1
 				},
 				//Properties:    make(map[string]interface{}),
 			}
