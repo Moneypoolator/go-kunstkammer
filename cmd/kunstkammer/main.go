@@ -82,7 +82,7 @@ func main() {
 	}
 
 	if reportFile != "" {
-		slog.Info("Loading configuration from", "file", configFile)
+		slog.Info("Loading repport configuration from", "file", reportFile)
 
 		report, err := utils.LoadReportFromJSON(reportFile)
 		if err != nil {
@@ -96,6 +96,10 @@ func main() {
 			slog.Debug("Report loaded", "SprintID", report.SprintID)
 			slog.Debug("Report loaded", "Responsible", report.Responsible)
 
+			err = AsyncProcessReport(env, env.Token, env.BaseURL, report.SprintID, report.Responsible, report)
+			if err != nil {
+				slog.Error("Process Report", "error", err)
+			}
 		}
 	}
 }
