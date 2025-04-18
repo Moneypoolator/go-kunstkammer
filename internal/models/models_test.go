@@ -4,6 +4,10 @@ import (
 	"testing"
 )
 
+func stringPtr(s string) *string {
+	return &s
+}
+
 func TestFindUserByEmail(t *testing.T) {
 	// Подготовка тестовых данных
 	users := []User{
@@ -80,17 +84,17 @@ func TestTaskValidation(t *testing.T) {
 	}{
 		{
 			name:  "Valid task",
-			task:  Task{Type: "delivery", Size: 8, Title: "Valid Task"},
+			task:  Task{Type: stringPtr("delivery"), Size: 8, Title: "Valid Task"},
 			valid: true,
 		},
 		{
 			name:  "Empty title",
-			task:  Task{Type: "discovery", Size: 16, Title: ""},
+			task:  Task{Type: stringPtr("discovery"), Size: 16, Title: ""},
 			valid: false,
 		},
 		{
 			name:  "Negative size",
-			task:  Task{Type: "bug", Size: -1, Title: "Invalid Size"},
+			task:  Task{Type: stringPtr("bug"), Size: -1, Title: "Invalid Size"},
 			valid: false,
 		},
 	}
@@ -119,8 +123,8 @@ func TestScheduleValidation(t *testing.T) {
 				Parent:      "123",
 				Responsible: "user@example.com",
 				Tasks: []Task{
-					{Type: "delivery", Size: 8, Title: "Task 1"},
-					{Type: "discovery", Size: 16, Title: "Task 2"},
+					{Type: stringPtr("delivery"), Size: 8, Title: "Task 1"},
+					{Type: stringPtr("discovery"), Size: 16, Title: "Task 2"},
 				},
 			},
 			valid: true,
@@ -131,7 +135,7 @@ func TestScheduleValidation(t *testing.T) {
 				Parent:      "",
 				Responsible: "user@example.com",
 				Tasks: []Task{
-					{Type: "delivery", Size: 8, Title: "Task 1"},
+					{Type: stringPtr("delivery"), Size: 8, Title: "Task 1"},
 				},
 			},
 			valid: false,

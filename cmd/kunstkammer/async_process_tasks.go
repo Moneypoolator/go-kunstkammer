@@ -99,12 +99,12 @@ func AsyncProcessTasks(env config.Config, token string, kaitenURL string, schedu
 			// }()
 
 			// Определяем тип задачи
-			taskTypeID, err := models.GetTaskTypeByName(task.Type)
-			if err != nil {
-				slog.Error("Getting task type ID", "task_type", task.Type, "error", err)
-				errorsChannel <- err
-				return
-			}
+			taskTypeID := models.GetTaskType(&task)
+			//if err != nil {
+			//	slog.Error("Getting task type ID", "task_type", task.Type, "error", err)
+			//	errorsChannel <- err
+			//	return
+			//}
 
 			// Заполняем карточку
 			card := &models.Card{

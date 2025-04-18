@@ -31,8 +31,8 @@ func TestLoadTasksFromJSON(t *testing.T) {
 
 	// Проверяем первую задачу
 	task1 := schedule.Tasks[0]
-	if task1.Type != "delivery" {
-		t.Errorf("Expected task type 'delivery', got '%s'", task1.Type)
+	if task1.Type == nil || *task1.Type != "delivery" {
+		t.Errorf("Expected task type 'delivery', got '%v'", task1.Type)
 	}
 	if task1.Size != 8 {
 		t.Errorf("Expected task size 8, got %d", task1.Size)
@@ -43,8 +43,8 @@ func TestLoadTasksFromJSON(t *testing.T) {
 
 	// Проверяем вторую задачу
 	task2 := schedule.Tasks[1]
-	if task2.Type != "discovery" {
-		t.Errorf("Expected task type 'discovery', got '%s'", task2.Type)
+	if task2.Type == nil || *task2.Type != "discovery" {
+		t.Errorf("Expected task type 'discovery', got '%v'", task2.Type)
 	}
 	if task2.Size != 16 {
 		t.Errorf("Expected task size 16, got %d", task2.Size)

@@ -56,11 +56,11 @@ func ProcessTasks(token string, kaitenURL string, schedule *models.Schedule) err
 	// Создаем карточки для каждой задачи
 	for _, task := range schedule.Tasks {
 		// Определяем тип задачи
-		taskTypeID, err := models.GetTaskTypeByName(task.Type)
-		if err != nil {
-			slog.Error("Getting task type ID", "task_type", task.Type, "error", err)
-			continue
-		}
+		taskTypeID := models.GetTaskType(&task)
+		//if err != nil {
+		//	slog.Error("Getting task type ID", "task_type", task.Type, "error", err)
+		//	continue
+		//}
 
 		// Заполняем карточку
 		//TOOD: Вынести магические числа в конфиг файл
