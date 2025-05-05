@@ -59,7 +59,7 @@ go mod tidy
 Запустите приложение:
 
 ```bash
-go run cmd/kunstkammer/main.go -tasks tasks.json -config config.json
+go run cmd/kunstkammer/*.go -tasks tasks.json -config config.json
 ```
 
 ## Сборка исполняемого файла
