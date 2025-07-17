@@ -69,32 +69,43 @@ func TestExtractWorkCode(t *testing.T) {
 	tests := []struct {
 		name        string
 		parentTitle string
-		expected    string
+		expProduct  string
+		expWorkCode string
 		expectError bool
 	}{
 		{
-			name:        "Valid title",
+			name:        "Valid CAD title",
 			parentTitle: "[CAD]:TS.FEATURE.123. Task Title",
-			expected:    "FEATURE.123",
+			expProduct:  "CAD",
+			expWorkCode: "TS.FEATURE.123",
+			expectError: false,
+		},
+		{
+			name:        "Valid MGM title",
+			parentTitle: "[MGM]:Widget.789.101 Some Task",
+			expProduct:  "MGM",
+			expWorkCode: "Widget.789.101",
 			expectError: false,
 		},
 		{
 			name:        "Invalid title - no match",
 			parentTitle: "Invalid Title",
-			expected:    "",
+			expProduct:  "",
+			expWorkCode: "",
 			expectError: true,
 		},
 		{
 			name:        "Empty title",
 			parentTitle: "",
-			expected:    "",
+			expProduct:  "",
+			expWorkCode: "",
 			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ExtractWorkCode(tt.parentTitle)
+			product, workCode, err := ExtractWorkCode(tt.parentTitle)
 
 			if tt.expectError {
 				if err == nil {
@@ -104,8 +115,11 @@ func TestExtractWorkCode(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				if result != tt.expected {
-					t.Errorf("Expected work code '%s', got '%s'", tt.expected, result)
+				if product != tt.expProduct {
+					t.Errorf("Expected product '%s', got '%s'", tt.expProduct, product)
+				}
+				if workCode != tt.expWorkCode {
+					t.Errorf("Expected work code '%s', got '%s'", tt.expWorkCode, workCode)
 				}
 			}
 		})

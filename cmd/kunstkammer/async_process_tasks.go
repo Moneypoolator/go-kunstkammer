@@ -45,14 +45,16 @@ func AsyncProcessTasks(env config.Config, token string, kaitenURL string, schedu
 
 	models.PrintCard(*parentCard)
 
+	parentCardProductCode := "CAD"
 	parentCardWorkCode := "XXX.XX"
 	if len(parentCard.Title) > 0 {
-		workCode, err := utils.ExtractWorkCode(parentCard.Title)
+		product, workCode, err := utils.ExtractWorkCode(parentCard.Title)
 		if err != nil {
 			slog.Warn("Extract Work Code", "error", err)
 		} else {
+			parentCardProductCode = product
 			parentCardWorkCode = workCode
-			slog.Debug("Work code", "code", workCode)
+			slog.Debug("Work code", "code", workCode, "product", product)
 		}
 	} else {
 		slog.Warn("Parent card title is empty")
@@ -141,7 +143,7 @@ func AsyncProcessTasks(env config.Config, token string, kaitenURL string, schedu
 
 			// Обновляем заголовок карточки, если это необходимо
 			if createdCard.TypeID == int(models.TaskDeliveryTaskType) || createdCard.TypeID == int(models.TaskDiscoveryTaskType) {
-				titleUpdate := fmt.Sprintf("[CAD]:TS.%s.%d. %s", parentCardWorkCode, createdCard.ID, createdCard.Title)
+				titleUpdate := fmt.Sprintf("[%s]:TS.%s.%d. %s", parentCardProductCode, parentCardWorkCode, createdCard.ID, createdCard.Title)
 				updateData := &models.CardUpdate{
 					Title: utils.StringPtr(titleUpdate),
 				}
