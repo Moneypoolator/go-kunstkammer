@@ -6,6 +6,7 @@ import (
 	"kunstkammer/internal/models"
 	"kunstkammer/pkg/config"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/xuri/excelize/v2"
@@ -29,14 +30,18 @@ func saveReportToExcel(report *models.Report) error {
 	f.SetActiveSheet(index)
 
 	// Set column headers
-	headers := []string{"ID", "Title", "Type", "Size (hours)", "Status", "Description"}
+	headers := []string{
+		"ID", "Title", "Type", "Size (hours)", "Status", "Description",
+		"SprintNumber", "Responsible", "Column", "Team", "ParentIds",
+		"Role", "IsBlocked", "TotalTime", "SizeUnit", "ChildSizeSum", "ChildSprintSum",
+	}
 	for i, header := range headers {
 		cell := fmt.Sprintf("%c1", 'A'+i)
 		f.SetCellValue(sheetName, cell, header)
 	}
 
 	// Set column widths
-	f.SetColWidth(sheetName, "A", "F", 20)
+	f.SetColWidth(sheetName, "A", "Q", 20)
 
 	// Write report summary
 	f.SetCellValue(sheetName, "A3", "Sprint ID:")
@@ -51,12 +56,34 @@ func saveReportToExcel(report *models.Report) error {
 	// Write tasks data
 	for i, task := range report.Tasks {
 		row := i + 8 // Start from row 8 to leave space for summary
+
+		// Format parent IDs
+		parentIDsStr := ""
+		if len(task.ParentIDs) > 0 {
+			parts := make([]string, len(task.ParentIDs))
+			for idx, v := range task.ParentIDs {
+				parts[idx] = fmt.Sprintf("%d", v)
+			}
+			parentIDsStr = strings.Join(parts, ", ")
+		}
+
 		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), task.ID)
 		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), task.Title)
 		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), task.Type)
 		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), task.Size)
 		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), task.Status)
 		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), task.Description)
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), task.SprintNumber)
+		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), task.Responsible)
+		f.SetCellValue(sheetName, fmt.Sprintf("I%d", row), task.Column)
+		f.SetCellValue(sheetName, fmt.Sprintf("J%d", row), task.Team)
+		f.SetCellValue(sheetName, fmt.Sprintf("K%d", row), parentIDsStr)
+		f.SetCellValue(sheetName, fmt.Sprintf("L%d", row), task.Role)
+		f.SetCellValue(sheetName, fmt.Sprintf("M%d", row), task.IsBlocked)
+		f.SetCellValue(sheetName, fmt.Sprintf("N%d", row), task.TotalTime)
+		f.SetCellValue(sheetName, fmt.Sprintf("O%d", row), task.SizeUnit)
+		f.SetCellValue(sheetName, fmt.Sprintf("P%d", row), task.ChildSizeSum)
+		f.SetCellValue(sheetName, fmt.Sprintf("Q%d", row), task.ChildSprintSum)
 	}
 
 	// Generate filename with timestamp

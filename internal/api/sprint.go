@@ -41,17 +41,10 @@ func (kc *KaitenClient) getColumnName(columnID int) (string, error) {
 	return column.Name, nil
 }
 
-// GetSprintTasks returns all tasks for a given sprint and user
+// GetSprintTasks returns all tasks for a given sprint (all users)
 func (kc *KaitenClient) GetSprintTasks(sprintID int, userEmail string) ([]models.Card, error) {
-	// First, get the user ID by email
-	userID, err := kc.GetUserIDByEmail(userEmail)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user ID: %w", err)
-	}
-
-	// Prepare query parameters
+	// Prepare query parameters (no member filter to include all users)
 	params := url.Values{}
-	params.Add("member_ids", fmt.Sprintf("%d", userID))
 	params.Add("limit", "100") // Maximum number of cards per request
 
 	var allCards []models.Card
@@ -108,17 +101,17 @@ func (kc *KaitenClient) GetSprintTasks(sprintID int, userEmail string) ([]models
 	return allCards, nil
 }
 
-// GetSprintReport generates a report for a given sprint and user
+// GetSprintReport generates a report for a given sprint (all users)
 func (kc *KaitenClient) GetSprintReport(sprintID int, userEmail string) (*models.Report, error) {
 	cards, err := kc.GetSprintTasks(sprintID, userEmail)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sprint tasks: %w", err)
 	}
 
-	// Create a report with the sprint ID and user email
+	// Create a report with the sprint ID and mark responsible as ALL
 	report := &models.Report{
 		SprintID:    sprintID,
-		Responsible: userEmail,
+		Responsible: "ALL",
 		TotalTasks:  len(cards),
 		Tasks:       make([]models.ReportTask, 0, len(cards)),
 	}
@@ -143,14 +136,41 @@ func (kc *KaitenClient) GetSprintReport(sprintID int, userEmail string) (*models
 			status = "Unknown" // Use "Unknown" if we can't get the column name
 		}
 
-		// Create report task
+		// Resolve responsible email if possible
+		responsible := userEmail
+		if card.ResponsibleID != 0 {
+			if user, err := kc.GetUser(card.ResponsibleID); err == nil && user != nil {
+				if user.Email != "" {
+					responsible = user.Email
+				}
+			}
+		}
+
+		// Parent IDs (Kaiten supports a single parent in our model)
+		var parentIDs []int
+		if card.ParentID != 0 {
+			parentIDs = []int{card.ParentID}
+		}
+
+		// Create report task with extended fields
 		reportTask := models.ReportTask{
-			ID:          card.ID,
-			Title:       card.Title,
-			Type:        taskType,
-			Size:        size,
-			Status:      status,
-			Description: card.Description,
+			ID:             card.ID,
+			Title:          card.Title,
+			Type:           taskType,
+			Size:           size,
+			Status:         status,
+			Description:    card.Description,
+			SprintNumber:   sprintID,
+			Responsible:    responsible,
+			Column:         status,
+			Team:           "",
+			ParentIDs:      parentIDs,
+			Role:           "",
+			IsBlocked:      false,
+			TotalTime:      size,
+			SizeUnit:       card.SizeText, //"hours",
+			ChildSizeSum:   0,
+			ChildSprintSum: 0,
 		}
 
 		report.Tasks = append(report.Tasks, reportTask)
