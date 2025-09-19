@@ -139,9 +139,12 @@ func (kc *KaitenClient) GetSprintReport(sprintID int, userEmail string) (*models
 		// Resolve responsible email if possible
 		responsible := userEmail
 		if card.ResponsibleID != 0 {
+			//responsible = strconv.Itoa(card.ResponsibleID)
 			if user, err := kc.GetUser(card.ResponsibleID); err == nil && user != nil {
 				if user.Email != "" {
 					responsible = user.Email
+				} else {
+					responsible = user.FullName
 				}
 			}
 		}
@@ -152,6 +155,24 @@ func (kc *KaitenClient) GetSprintReport(sprintID int, userEmail string) (*models
 			parentIDs = []int{card.ParentID}
 		}
 
+		// Get sprint number from card properties (id_12)
+		cardSprintNumber := sprintID // fallback to parameter
+		if sprintNum, exists := card.GetSprintNumber(); exists {
+			cardSprintNumber = sprintNum
+		}
+
+		// Get role from card properties (id_19)
+		role := ""
+		if roleID, exists := card.GetRoleID(); exists {
+			role = models.RoleType(roleID).String() // Format as Role_ID for now (assuming String() method handles this)
+		}
+
+		team := ""
+		if name, ok := card.GetTeamIDFrom("id_143"); ok {
+			//			if name, ok := card.GetTeamNameFrom("id_143"); ok {
+			team = strconv.Itoa(name)
+		}
+
 		// Create report task with extended fields
 		reportTask := models.ReportTask{
 			ID:             card.ID,
@@ -160,12 +181,12 @@ func (kc *KaitenClient) GetSprintReport(sprintID int, userEmail string) (*models
 			Size:           size,
 			Status:         status,
 			Description:    card.Description,
-			SprintNumber:   sprintID,
+			SprintNumber:   cardSprintNumber,
 			Responsible:    responsible,
 			Column:         status,
-			Team:           "",
+			Team:           team,
 			ParentIDs:      parentIDs,
-			Role:           "",
+			Role:           role,
 			IsBlocked:      false,
 			TotalTime:      size,
 			SizeUnit:       card.SizeText, //"hours",
